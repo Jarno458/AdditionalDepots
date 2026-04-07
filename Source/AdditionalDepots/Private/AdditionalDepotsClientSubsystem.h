@@ -1,27 +1,74 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AdditionalDepotsDataTypes.h"
 #include "FGCentralStorageSubsystem.h"
 #include "ItemAmount.h"
+#include "Engine/DataAsset.h"
 #include "Subsystem/ModSubsystem.h"
 #include "AdditionalDepotsClientSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsClientSubsystem, Log, All);
 
-UENUM(BlueprintType)
-enum class EFAAdditionalDepotsMaxType : uint8 {
-	Stacks UMETA(DisplayName = "Number of Stacks"),
-	Total UMETA(DisplayName = "Total amout of items"),
-	TotalHidden UMETA(DisplayName = "Total amout of items (only used for progress bar)"),
-	None UMETA(DisplayName = "None (no progress bar)"),
-};
-
 USTRUCT(BlueprintType)
-struct FAAdditionalDepotsItemDetails
+struct FAdditionalDepotsListDetailsData
 {
 	GENERATED_BODY()
 
-	FAAdditionalDepotsItemDetails() :
+public:
+	FAdditionalDepotsListDetailsData() : 
+		Name(""),
+		MaxAmount(0),
+		MaxType(EFAAdditionalDepotsMaxType::None),
+		Color(FLinearColor::White),
+		CanDragItemsToInventory(false),
+		Icon(nullptr)
+	{
+	}
+
+	FAdditionalDepotsListDetailsData(TSubclassOf<UAdditionalDepotsListDetails> details)
+	{
+		if (details)
+		{
+			if (const UAdditionalDepotsListDetails* cdo = details.GetDefaultObject())
+			{
+				Name = cdo->Name;
+				MaxAmount = cdo->MaxAmount;
+				MaxType = cdo->MaxType;
+				Color = cdo->Color;
+				CanDragItemsToInventory = cdo->CanDragItemsToInventory;
+				Icon = cdo->Icon;
+			}
+		}
+	}
+
+public:
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	FString Name;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	int32 MaxAmount = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	EFAAdditionalDepotsMaxType MaxType = EFAAdditionalDepotsMaxType::None;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	FLinearColor Color = FLinearColor::White;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	bool CanDragItemsToInventory = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UTexture2D* Icon = nullptr;
+};
+
+USTRUCT(BlueprintType)
+struct FAdditionalDepotsItemDetails
+{
+	GENERATED_BODY()
+
+public:
+	FAdditionalDepotsItemDetails() :
 		Amount(0),
 		MaxAmount(0),
 		MaxType(EFAAdditionalDepotsMaxType::None),
@@ -29,80 +76,28 @@ struct FAAdditionalDepotsItemDetails
 	{
 	}
 
-
-	FAAdditionalDepotsItemDetails(int32 inAmount, int32 inMaxAmount, EFAAdditionalDepotsMaxType inMaxType, FLinearColor inColor) :
-		Amount(inAmount),
-		MaxAmount(inMaxAmount),
-		MaxType(inMaxType),
-		Color(inColor)
+	FAdditionalDepotsItemDetails(TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, int32 maxAmount, EFAAdditionalDepotsMaxType maxType, FLinearColor color) :
+		Amount(amount),
+		MaxAmount(maxAmount),
+		MaxType(maxType),
+		Color(color)
 	{
 	}
 
-	UPROPERTY(BlueprintReadWrite)
-	int32 Amount;
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	int32 Amount = 0;
 
-	UPROPERTY(BlueprintReadWrite)
-	int32 MaxAmount;
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	int32 MaxAmount = 0;
 
-	UPROPERTY(BlueprintReadWrite)
-	EFAAdditionalDepotsMaxType MaxType;
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	EFAAdditionalDepotsMaxType MaxType = EFAAdditionalDepotsMaxType::None;
 
-	UPROPERTY(BlueprintReadWrite)
-	FLinearColor Color;
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	FLinearColor Color = FLinearColor::White;
 };
 
-USTRUCT(BlueprintType)
-struct FAAdditionalDepotsListDetails
-{
-	GENERATED_BODY()
 
-	FAAdditionalDepotsListDetails() :
-		Identifier(NAME_None),
-		Name(""),
-		MaxAmount(0),
-		MaxType(EFAAdditionalDepotsMaxType::None),
-		Color(FLinearColor::White),
-		PersistInSaveGame(false),
-		CanDragItemsToInventory(false),
-		Icon(nullptr)
-	{
-	}
-
-	FAAdditionalDepotsListDetails(FName identifier, FString name, int32 inMaxAmount, EFAAdditionalDepotsMaxType inMaxType, FLinearColor inColor) :
-		Identifier(identifier),
-		MaxAmount(inMaxAmount),
-		MaxType(inMaxType),
-		Color(inColor),
-		PersistInSaveGame(true),
-		CanDragItemsToInventory(true),
-		Icon(nullptr)
-	{
-	}
-
-	UPROPERTY(BlueprintReadWrite)
-	FName Identifier;
-
-	UPROPERTY(BlueprintReadWrite)
-	FString Name;
-
-	UPROPERTY(BlueprintReadWrite)
-	int32 MaxAmount;
-
-	UPROPERTY(BlueprintReadWrite)
-	EFAAdditionalDepotsMaxType MaxType;
-
-	UPROPERTY(BlueprintReadWrite)
-	FLinearColor Color;
-
-	UPROPERTY(BlueprintReadWrite)
-	bool PersistInSaveGame;
-
-	UPROPERTY(BlueprintReadWrite)
-	bool CanDragItemsToInventory;
-
-	UPROPERTY(BlueprintReadWrite)
-	UTexture2D* Icon;
-};
 
 UCLASS()
 class AAdditionalDepotsClientSubsystem : public AModSubsystem
@@ -112,21 +107,19 @@ class AAdditionalDepotsClientSubsystem : public AModSubsystem
 public:
 	AAdditionalDepotsClientSubsystem();
 
-	static AAdditionalDepotsClientSubsystem* Get(class UWorld* world);
+	static AAdditionalDepotsClientSubsystem* Get(UWorld* world);
 	UFUNCTION(BlueprintPure, Category = "Schematic", DisplayName = "Get Additional Depots Subsystem", Meta = (DefaultToSelf = "worldContext"))
 	static AAdditionalDepotsClientSubsystem* Get(UObject* worldContext);
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaTime) override;
 
 private:
 	UPROPERTY()
 	AFGCentralStorageSubsystem* centralStorageSubsystem;
 
-	TMap<FName, FAAdditionalDepotsListDetails> depotLists;
+	TMap<FName, FAdditionalDepotsListDetailsData> depotLists;
 	TMap<FName, FMappedItemAmount> depotContents;
-	TMap<FName, TArray<TSubclassOf<UFGItemDescriptor>>> pinnedItems;
 
 	FName activeList;
 
@@ -144,7 +137,7 @@ public:
 	void SetActiveList(FName listIdentifier);
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add Depot List", ToolTip = "Adds a new depot list definition to the subsystem, should be called on each client and server."))
-	void AddList(const FAAdditionalDepotsListDetails& details);
+	void AddList(TSubclassOf<UAdditionalDepotsListDetails> details);
 
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All Depot Lists Identifiers")
 	TArray<FName> GetListIdentifiers();
@@ -152,11 +145,11 @@ public:
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All items in Depot List")
 	TArray<FItemAmount> GetItems(FName listIdentifier);
 
-	UFUNCTION(BlueprintPure, DisplayName = "Get Details For Depot List")
-	FAAdditionalDepotsListDetails GetListDetails(FName listIdentifier);
+	UFUNCTION(BlueprintPure, DisplayName = "Get Depot List Details")
+	FAdditionalDepotsListDetailsData GetListDetails(FName listIdentifier) const;
 
-	UFUNCTION(BlueprintPure, DisplayName = "Get Details For Depot Item")
-	FAAdditionalDepotsItemDetails GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass);
+	UFUNCTION(BlueprintPure, DisplayName = "Get Depot Item Details")
+	FAdditionalDepotsItemDetails GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass) const;
 
 private:
 

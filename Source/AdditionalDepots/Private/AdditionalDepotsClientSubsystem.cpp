@@ -1,5 +1,7 @@
 #include "AdditionalDepotsClientSubsystem.h"
 
+#include "AdditionalDepotsDataTypes.h"
+#include "AdditionalDepotsUtils.h"
 #include "FGCentralStorageSubsystem.h"
 #include "Subsystem/SubsystemActorManager.h"
 #include "Logging/StructuredLog.h"
@@ -14,18 +16,6 @@ AAdditionalDepotsClientSubsystem::AAdditionalDepotsClientSubsystem() : Super() {
 	ReplicationPolicy = ESubsystemReplicationPolicy::SpawnOnClient;
 
 	activeList = GetDimensionalDepotIdentifier();
-
-	FLinearColor DimensionalDepotColor(0.346704f, 0.152926f, 0.346704f);
-	FAAdditionalDepotsListDetails dimensionalDepotDetails;
-	dimensionalDepotDetails.Identifier = GetDimensionalDepotIdentifier();
-	dimensionalDepotDetails.Name = TEXT("Dimensional Depot");
-	dimensionalDepotDetails.MaxAmount = 1;
-	dimensionalDepotDetails.MaxType = EFAAdditionalDepotsMaxType::Stacks;
-	dimensionalDepotDetails.Color = DimensionalDepotColor;
-	dimensionalDepotDetails.PersistInSaveGame = true;
-	dimensionalDepotDetails.CanDragItemsToInventory = true;
-
-	depotLists.Add(dimensionalDepotDetails.Identifier, dimensionalDepotDetails);
 }
 
 AAdditionalDepotsClientSubsystem* AAdditionalDepotsClientSubsystem::Get(UWorld* world) {
@@ -46,10 +36,10 @@ void AAdditionalDepotsClientSubsystem::BeginPlay() {
 	Super::BeginPlay();
 
 	centralStorageSubsystem = AFGCentralStorageSubsystem::Get(GetWorld());
-}
 
-void AAdditionalDepotsClientSubsystem::Tick(float DeltaTime) {
-	Super::Tick(DeltaTime);
+	const TArray<TSubclassOf<UAdditionalDepotsListDetails>> lists = UAdditionalDepotsUtils::LoadAdditionalDepotLists();
+	for (const TSubclassOf<UAdditionalDepotsListDetails>& list : lists)
+		AddList(list);
 }
 
 void AAdditionalDepotsClientSubsystem::SetActiveList(FName listIdentifier)
@@ -69,9 +59,22 @@ void AAdditionalDepotsClientSubsystem::SetActiveList(FName listIdentifier)
 	activeList = listIdentifier;
 }
 
-void AAdditionalDepotsClientSubsystem::AddList(const FAAdditionalDepotsListDetails& details)
+void AAdditionalDepotsClientSubsystem::AddList(TSubclassOf<UAdditionalDepotsListDetails> details)
 {
-	depotLists.Add(details.Identifier, details);
+	if (!details)
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::AddList() - Details class is null!");
+		return;
+	}
+
+	const UAdditionalDepotsListDetails* cdo = details.GetDefaultObject();
+	if (!cdo || !cdo->Identifier.IsValid())
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::AddList() - Details class has invalid Identifier!");
+		return;
+	}
+
+	depotLists.Add(cdo->Identifier, FAdditionalDepotsListDetailsData(details));
 }
 
 TArray<FName> AAdditionalDepotsClientSubsystem::GetListIdentifiers()
@@ -101,38 +104,39 @@ TArray<FItemAmount> AAdditionalDepotsClientSubsystem::GetItems(FName listIdentif
 	return items;
 }
 
-FAAdditionalDepotsListDetails AAdditionalDepotsClientSubsystem::GetListDetails(FName listIdentifier)
+FAdditionalDepotsListDetailsData AAdditionalDepotsClientSubsystem::GetListDetails(FName listIdentifier) const
 {
 	if (!listIdentifier.IsValid())
 	{
 		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::GetListDetails() - Invalid list identifier!");
-		return FAAdditionalDepotsListDetails();
+		return FAdditionalDepotsListDetailsData();
 	}
 
 	if (!depotLists.Contains(listIdentifier))
 	{
 		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::GetListDetails(listIdentifier: {0}) - List identifier not found!", listIdentifier.ToString());
-		return FAAdditionalDepotsListDetails();
+		return FAdditionalDepotsListDetailsData();
 	}
 
 	return depotLists[listIdentifier];
 }
 
-FAAdditionalDepotsItemDetails AAdditionalDepotsClientSubsystem::GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass)
+FAdditionalDepotsItemDetails AAdditionalDepotsClientSubsystem::GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass) const
 {
 	if (!listIdentifier.IsValid())
 	{
 		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::GetItemDetails() - Invalid list identifier!");
-		return FAAdditionalDepotsItemDetails();
+		return FAdditionalDepotsItemDetails();
 	}
 
 	if (!depotLists.Contains(listIdentifier) || !depotContents.Contains(listIdentifier))
-		return FAAdditionalDepotsItemDetails();
+		return FAdditionalDepotsItemDetails();
 
-	FAAdditionalDepotsListDetails listDetails = depotLists[listIdentifier];
-	int32 amount = depotContents[listIdentifier].ItemAmounts[itemClass];
+	FAdditionalDepotsListDetailsData listDetails = depotLists[listIdentifier];
 
-	return FAAdditionalDepotsItemDetails(amount, listDetails.MaxAmount, listDetails.MaxType, listDetails.Color);
+	int32 amount = depotContents[listIdentifier].ItemAmounts.Contains(itemClass) ? depotContents[listIdentifier].ItemAmounts[itemClass] : 0;
+
+	return FAdditionalDepotsItemDetails(itemClass, amount, listDetails.MaxAmount, listDetails.MaxType, listDetails.Color);
 }
 
 #pragma optimize("", on)

@@ -16,14 +16,14 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
 );
 
 UCLASS()
-class AAdditionalDepotsServerSubsystem : public AModSubsystem
+class ADDITIONALDEPOTS_API AAdditionalDepotsServerSubsystem : public AModSubsystem
 {
 	GENERATED_BODY()
 
 public:
 	AAdditionalDepotsServerSubsystem();
 
-	static AAdditionalDepotsServerSubsystem* Get(class UWorld* world);
+	static AAdditionalDepotsServerSubsystem* Get(UWorld* world);
 	UFUNCTION(BlueprintPure, Category = "Schematic", DisplayName = "Get Additional Depots Serverside Subsystem", Meta = (DefaultToSelf = "worldContext"))
 	static AAdditionalDepotsServerSubsystem* Get(UObject* worldContext);
 
