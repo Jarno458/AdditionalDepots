@@ -4,17 +4,9 @@
 #include "FGCentralStorageSubsystem.h"
 #include "ItemAmount.h"
 #include "Subsystem/ModSubsystem.h"
-#include "ListView.h"
-#include "AdditionalDepotsSubsystem.generated.h"
+#include "AdditionalDepotsClientSubsystem.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsSubsystem, Log, All);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
-	FADOnDepotItemsRemoved,
-	FName, ListIdentifier,
-	TSubclassOf<UFGItemDescriptor>, ItemClass,
-	int, Amount
-);
+DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsClientSubsystem, Log, All);
 
 UENUM(BlueprintType)
 enum class EFAAdditionalDepotsMaxType : uint8 {
@@ -30,7 +22,10 @@ struct FAAdditionalDepotsItemDetails
 	GENERATED_BODY()
 
 	FAAdditionalDepotsItemDetails() :
-		Amount(0), MaxAmount(0), MaxType(EFAAdditionalDepotsMaxType::None), Color(FLinearColor::White)
+		Amount(0),
+		MaxAmount(0),
+		MaxType(EFAAdditionalDepotsMaxType::None),
+		Color(FLinearColor::White)
 	{
 	}
 
@@ -110,16 +105,16 @@ struct FAAdditionalDepotsListDetails
 };
 
 UCLASS()
-class AAdditionalDepotsSubsystem : public AModSubsystem
+class AAdditionalDepotsClientSubsystem : public AModSubsystem
 {
 	GENERATED_BODY()
 
 public:
-	AAdditionalDepotsSubsystem();
+	AAdditionalDepotsClientSubsystem();
 
-	static AAdditionalDepotsSubsystem* Get(class UWorld* world);
+	static AAdditionalDepotsClientSubsystem* Get(class UWorld* world);
 	UFUNCTION(BlueprintPure, Category = "Schematic", DisplayName = "Get Additional Depots Subsystem", Meta = (DefaultToSelf = "worldContext"))
-	static AAdditionalDepotsSubsystem* Get(UObject* worldContext);
+	static AAdditionalDepotsClientSubsystem* Get(UObject* worldContext);
 
 protected:
 	virtual void BeginPlay() override;
@@ -131,6 +126,7 @@ private:
 
 	TMap<FName, FAAdditionalDepotsListDetails> depotLists;
 	TMap<FName, FMappedItemAmount> depotContents;
+	TMap<FName, TArray<TSubclassOf<UFGItemDescriptor>>> pinnedItems;
 
 	FName activeList;
 
@@ -150,17 +146,6 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add Depot List", ToolTip = "Adds a new depot list definition to the subsystem, should be called on each client and server."))
 	void AddList(const FAAdditionalDepotsListDetails& details);
 
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Depot Content", ToolTip = "Sets the content of a depot list (overriding existing content), should only be called on server."))
-	void SetDepotContent(FName listIdentifier, TArray<FItemAmount> items);
-
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add Item To Depot", ToolTip = "Adds an amount of items to a specific depot list, returns the total items added"))
-
-	int32 AddItem(FName listIdentifier, FItemAmount item);
-
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Remove Item To Depot", ToolTip = "Removes an amount of items to a specific depot list, returns the total items removed"))
-
-	int32 RemoveItem(FName listIdentifier, FItemAmount item);
-
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All Depot Lists Identifiers")
 	TArray<FName> GetListIdentifiers();
 
@@ -173,11 +158,6 @@ public:
 	UFUNCTION(BlueprintPure, DisplayName = "Get Details For Depot Item")
 	FAAdditionalDepotsItemDetails GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass);
 
-	UFUNCTION(BlueprintCallable)
-	void OnCentralStorageConstruct(UListView* ListView);
-
-	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
-	FADOnDepotItemsRemoved OnItemsRemoved;
 private:
 
 };

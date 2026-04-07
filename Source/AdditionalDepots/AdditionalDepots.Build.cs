@@ -16,7 +16,7 @@ public class AdditionalDepots : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] {
 			"Core", "CoreUObject",
 			"Engine",
-			"DeveloperSettings",
+			//"DeveloperSettings",
 			//"PhysicsCore",
 			"InputCore",
 			//"GeometryCollectionEngine",
@@ -26,13 +26,14 @@ public class AdditionalDepots : ModuleRules
 			//"AIModule",
 			"GameplayTasks",
 			"SlateCore", "Slate", "UMG",
-			"RenderCore",
+			//"RenderCore",
 			//"CinematicCamera",
 			//"Foliage",
 			"NetCore",
 			//"GameplayTags",
 			//"Json", "JsonUtilities"
-		});
+			"ReliableMessaging"
+        });
 
 		// Header stubs
 		PublicDependencyModuleNames.AddRange(new string[] {
