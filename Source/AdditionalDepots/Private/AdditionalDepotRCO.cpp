@@ -14,11 +14,11 @@ void UAdditionalDepotRCO::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 void UAdditionalDepotRCO::ServerRemoveItem_Implementation(FName listIdentifier, FItemAmount itemAmount) {
 	UE_LOGFMT(LogAdditionalDepotRCO, Display, "RCO Take Item from Server: {0}, item: {1}", listIdentifier.ToString(), itemAmount.Amount);
 
-	AAdditionalDepotsServerSubsystem::Get(GetWorld())->RemoveItem(listIdentifier, itemAmount);
+	AAdditionalDepotsServerSubsystem::Get(GetWorld())->RemoveItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount);
 }
 
 void UAdditionalDepotRCO::ServerAddItem_Implementation(FName listIdentifier, FItemAmount itemAmount) {
 	UE_LOGFMT(LogAdditionalDepotRCO, Display, "RCO Add Item to Server: {0}, item: {1}", listIdentifier.ToString(), itemAmount.Amount);
 
-	AAdditionalDepotsServerSubsystem::Get(GetWorld())->AddItem(listIdentifier, itemAmount);
+	AAdditionalDepotsServerSubsystem::Get(GetWorld())->AddItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount);
 }

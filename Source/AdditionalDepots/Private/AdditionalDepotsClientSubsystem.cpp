@@ -36,9 +36,15 @@ void AAdditionalDepotsClientSubsystem::BeginPlay() {
 	Super::BeginPlay();
 
 	centralStorageSubsystem = AFGCentralStorageSubsystem::Get(GetWorld());
+}
 
-	const TArray<TSubclassOf<UAdditionalDepotsListDetails>> lists = UAdditionalDepotsUtils::LoadAdditionalDepotLists();
-	for (const TSubclassOf<UAdditionalDepotsListDetails>& list : lists)
+void AAdditionalDepotsClientSubsystem::PostActorCreated()
+{
+	UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Display, "AAdditionalDepotsClientSubsystem::PostActorCreated()");
+	Super::PostActorCreated();
+
+	const TArray<TSubclassOf<UAdditionalDepotDefinition>> lists = UAdditionalDepotsUtils::LoadAdditionalDepotLists();
+	for (const TSubclassOf<UAdditionalDepotDefinition>& list : lists)
 		AddList(list);
 }
 
@@ -59,24 +65,6 @@ void AAdditionalDepotsClientSubsystem::SetActiveList(FName listIdentifier)
 	activeList = listIdentifier;
 }
 
-void AAdditionalDepotsClientSubsystem::AddList(TSubclassOf<UAdditionalDepotsListDetails> details)
-{
-	if (!details)
-	{
-		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::AddList() - Details class is null!");
-		return;
-	}
-
-	const UAdditionalDepotsListDetails* cdo = details.GetDefaultObject();
-	if (!cdo || !cdo->Identifier.IsValid())
-	{
-		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::AddList() - Details class has invalid Identifier!");
-		return;
-	}
-
-	depotLists.Add(cdo->Identifier, FAdditionalDepotsListDetailsData(details));
-}
-
 TArray<FName> AAdditionalDepotsClientSubsystem::GetListIdentifiers()
 {
 	TArray<FName> lists;
@@ -88,18 +76,22 @@ TArray<FItemAmount> AAdditionalDepotsClientSubsystem::GetItems(FName listIdentif
 {
 	TArray<FItemAmount> items;
 
-	if (!listIdentifier.IsValid() || !depotLists.Contains(listIdentifier))
+	if (!listIdentifier.IsValid())
 		return items;
 
 	if (listIdentifier == GetDimensionalDepotIdentifier())
 	{
 		centralStorageSubsystem->GetAllItemsFromCentralStorage(items);
+		return items;
 	}
-	else
+
+	if (!depotContents.Contains(listIdentifier))
 	{
-		for (const TPair<TSubclassOf<UFGItemDescriptor>, int32>& item : depotContents[listIdentifier].ItemAmounts)
-			items.Add(FItemAmount(item.Key, item.Value));
+		return items;
 	}
+
+	for (const TPair<TSubclassOf<UFGItemDescriptor>, int32>& item : depotContents[listIdentifier].ItemAmounts)
+		items.Add(FItemAmount(item.Key, item.Value));
 
 	return items;
 }
@@ -137,6 +129,36 @@ FAdditionalDepotsItemDetails AAdditionalDepotsClientSubsystem::GetItemDetails(FN
 	int32 amount = depotContents[listIdentifier].ItemAmounts.Contains(itemClass) ? depotContents[listIdentifier].ItemAmounts[itemClass] : 0;
 
 	return FAdditionalDepotsItemDetails(itemClass, amount, listDetails.MaxAmount, listDetails.MaxType, listDetails.Color);
+}
+
+void AAdditionalDepotsClientSubsystem::AddItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)
+{
+	if (!listIdentifier.IsValid())
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::AddItemData() - Invalid list identifier!");
+		return;
+	}
+
+	depotContents.FindOrAdd(listIdentifier).ItemAmounts.FindOrAdd(itemClass);
+	depotContents[listIdentifier].ItemAmounts[itemClass] = amount;
+}
+
+void AAdditionalDepotsClientSubsystem::AddList(TSubclassOf<UAdditionalDepotDefinition> details)
+{
+	if (!details)
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::AddList() - Details class is null!");
+		return;
+	}
+
+	const UAdditionalDepotDefinition* cdo = details.GetDefaultObject();
+	if (!cdo || !cdo->Identifier.IsValid())
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::AddList() - Details class has invalid Identifier!");
+		return;
+	}
+
+	depotLists.Add(cdo->Identifier, FAdditionalDepotsListDetailsData(details));
 }
 
 #pragma optimize("", on)

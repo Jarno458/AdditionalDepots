@@ -1,5 +1,7 @@
 #include "AdditionalDepotsReplicatorSubsystem.h"
 
+#include "AdditionalDepotsClientSubsystem.h"
+#include "AdditionalDepotsServerSubsystem.h"
 #include "EngineUtils.h"
 #include "NameAsStringProxyArchive.h"
 #include "ReliableMessagingPlayerComponent.h"
@@ -9,26 +11,19 @@ DEFINE_LOG_CATEGORY(LogAdditionalDepotsReplicatorSubsystem);
 
 #pragma optimize("", off)
 
-/*FArchive& operator<<(FArchive& Ar, FReplicatedFApPlayerInfo& Info)
+FArchive& operator<<(FArchive& Ar, FReplicatedItemData& Info)
 {
-	Ar << Info.Team;
-	Ar << Info.Slot;
-	Ar << Info.Name;
-	Ar << Info.Game;
+	//Ar << Info.ListIdentifier;
+	//Ar << Info.ItemClass;
+	Ar << Info.Amount;
 	return Ar;
 }
 
-FArchive& operator<<(FArchive& Ar, FPlayerInfoSubsystemInitialReplicationMessage& Message)
+FArchive& operator<<(FArchive& Ar, FAdditionalDepotsItemReplicationMessage& Message)
 {
-	Ar << Message.PlayerInfos;
+	Ar << Message.ItemData;
 	return Ar;
 }
-
-FArchive& operator<<(FArchive& Ar, FPlayerInfoSubsystemUpdateReplicationMessage& Message)
-{
-	Ar << Message.PlayerInfos;
-	return Ar;
-}*/
 
 AAdditionalDepotsReplicatorSubsystem* AAdditionalDepotsReplicatorSubsystem::Get(UWorld* world) {
 	USubsystemActorManager* SubsystemActorManager = world->GetSubsystem<USubsystemActorManager>();
@@ -58,14 +53,12 @@ void AAdditionalDepotsReplicatorSubsystem::BeginPlay() {
 
 	UE_LOG(LogAdditionalDepotsReplicatorSubsystem, Display, TEXT("AAdditionalDepotsReplicatorSubsystem::BeginPlay()"));
 
-	UWorld* world = GetWorld();
-	const ENetMode ActiveNetMode = world->GetNetMode();
+	//UWorld* world = GetWorld();
+	//const ENetMode ActiveNetMode = world->GetNetMode();
 
 	//cant use Authority checks here because its locally spawned
-	if (ActiveNetMode != ENetMode::NM_Client) {
-		//ap = AApSubsystem::Get(world);
-		//connectionInfoSubsystem = AApConnectionInfoSubsystem::Get(world);
-	}
+	//if (ActiveNetMode != ENetMode::NM_Client) {
+	//}
 }
 
 void AAdditionalDepotsReplicatorSubsystem::Tick(float dt) {
@@ -79,198 +72,52 @@ void AAdditionalDepotsReplicatorSubsystem::Tick(float dt) {
 		return;
 	}
 
-	/*if (connectionInfoSubsystem->GetConnectionState() == EApConnectionState::Connected) {
-		const TMap<FApPlayer, TTuple<FString, FString>>& players = ap->GetAllApPlayers();
-
-		if (!isInitialized)
-		{
-			TArray<FReplicatedFApPlayerInfo> playerInfos;
-
-			for (const TPair<FApPlayer, TTuple<FString, FString>>& playerInfo : players)
-			{
-				FString name = playerInfo.Value.Get<0>();
-				FString game = playerInfo.Value.Get<1>();
-
-				playerInfos.Add(FReplicatedFApPlayerInfo(playerInfo.Key.Team, playerInfo.Key.Slot, name, game));
-			}
-
-			InitializeData(playerInfos);
-
-			SendInitialReplicationDataForAllClients();
-
-			PrimaryActorTick.TickInterval = 30.0f;
-
-			return;
-		}
-
-		TArray<FReplicatedFApPlayerInfo> playerInfosToUpdate;
-
-		for (const TPair<FApPlayer, TTuple<FString, FString>>& playerInfo : players)
-		{
-			FString name = playerInfo.Value.Get<0>();
-
-			if (PlayerNamesMap.Contains(playerInfo.Key) && PlayerNamesMap[playerInfo.Key] != name)
-			{
-				playerInfosToUpdate.Add(FReplicatedFApPlayerInfo(playerInfo.Key, name, TEXT("")));
-
-				PlayerNamesMap[playerInfo.Key] = name;
-			}
-		}
-
-		if (!playerInfosToUpdate.IsEmpty()) {
-			UpdateReplicationDataForAllClients(playerInfosToUpdate);
-		}
-	}*/
-}
-
-/*
-FString AApPlayerInfoSubsystem::GetPlayerName(FApPlayer player) const {
-	if (PlayerNamesMap.Contains(player)) {
-		if (hasMultipleTeams) {
-			return FString::Format(TEXT("{0} (Team {1})"), { PlayerNamesMap[player], player.Team });
-		}
-		else {
-			return PlayerNamesMap[player];
-		}
+	AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+	if (!IsValid(serverSubsystem)) {
+		UE_LOG(LogAdditionalDepotsReplicatorSubsystem, Error, TEXT("Failed to find AAdditionalDepotsServerSubsystem in the world"));
+		return;
 	}
 
-	return FString::Format(TEXT("Team: {0}. Slot: {1}"), { player.Team, player.Slot });
-}
-
-FString AApPlayerInfoSubsystem::GetPlayerGame(FApPlayer player) const {
-	if (PlayerGamesMap.Contains(player)) {
-		return PlayerGamesMap[player];
-	}
-
-	return TEXT("");
-}
-
-int AApPlayerInfoSubsystem::GetPlayerCount() const {
-	return PlayerNamesMap.Num();
-}
-
-TSet<int> AApPlayerInfoSubsystem::GetTeams() const {
-	TSet<int> teams;
-
-	for (TPair<FApPlayer, FString> NamesMap : PlayerNamesMap)
+	if (!serverSubsystem->IsInitialized())
 	{
-		if (!teams.Contains(NamesMap.Key.Team))
-		{
-			teams.Add(NamesMap.Key.Team);
-		}
+		return; //waiting for initialization
 	}
 
-	return teams;
-}
-
-TArray<FApPlayer> AApPlayerInfoSubsystem::GetAllPlayers() const
-{
-	TArray<FApPlayer> players;
-
-	for (const TPair<FApPlayer, FString>& player : PlayerNamesMap)
-	{
-		if (player.Key.Slot != 0) {
-			players.Add(player.Key);;
-		}
-	}	
-
-	return players;
-}
-
-TArray<FString> AApPlayerInfoSubsystem::GetAllGames() const
-{
-	TArray<FString> games;
-
-	for (TPair<FApPlayer, FString> NamesMap : PlayerNamesMap)
-	{
-		FString game = GetPlayerGame(NamesMap.Key);
-
-		if (!game.IsEmpty() && game != TEXT("__Server")) { //APCpp falsely report the server game as __Server
-			games.Add(game);
-		}
-	}
-
-	return games;
-}
-
-TArray<FApPlayer> AApPlayerInfoSubsystem::GetAllPlayersPlayingGame(FString game) const
-{
-	TArray<FApPlayer> players;
-
-	for (TPair<FApPlayer, FString> GamesMap : PlayerGamesMap)
-	{
-		if (GamesMap.Value == game) {
-			players.Add(GamesMap.Key);
-		}
-	}
-
-	return players;
-}
-*/
-
-/*
-void AApPlayerInfoSubsystem::SendInitialReplicationDataForAllClients() {
-	for (TActorIterator<APlayerController> actorItterator(GetWorld()); actorItterator; ++actorItterator) {
-		APlayerController* PlayerController = *actorItterator;
+	for (TActorIterator<APlayerController> actorIterator(GetWorld()); actorIterator; ++actorIterator) {
+		const APlayerController* PlayerController = *actorIterator;
 		if (!IsValid(PlayerController) || PlayerController->IsLocalController())
 			continue;
 
 		SendInitialReplicationData(PlayerController);
 	}
+
+	SetActorTickEnabled(false);
 }
 
-void AApPlayerInfoSubsystem::SendInitialReplicationData(const APlayerController* PlayerController)
+void AAdditionalDepotsReplicatorSubsystem::SendInitialReplicationData(const APlayerController* PlayerController) const
 {
-	TArray<FReplicatedFApPlayerInfo> PlayerInfos;
+	if (!IsValid(PlayerController))
+		return;
 
-	for (const TPair<FApPlayer, FString>& namesMap : PlayerNamesMap)
+	AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+	if (!IsValid(serverSubsystem) || !serverSubsystem->IsInitialized())
+		return;
+
+	FAdditionalDepotsItemReplicationMessage Message;
+	Message.ItemData = TArray<FReplicatedItemData>();
+
+	for (FName listIdentifier : serverSubsystem->GetListIdentifiers())
 	{
-		PlayerInfos.Add(FReplicatedFApPlayerInfo(namesMap.Key, namesMap.Value, PlayerGamesMap[namesMap.Key]));
-	}
-
-	FPlayerInfoSubsystemInitialReplicationMessage Message;
-	Message.PlayerInfos = PlayerInfos;
-
-	UE_LOG(LogApPlayerInfoSubsystem, Log, TEXT("Sending initial replication message with %d items in the lookup array to player %s"), Message.PlayerInfos.Num(), *GetPathName(GetOwner()));
-
-	SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
-}
-
-void AApPlayerInfoSubsystem::UpdateReplicationDataForAllClients(const TArray<FReplicatedFApPlayerInfo>& playerInfosToUpdate) const {
-	for (TActorIterator<APlayerController> actorItterator(GetWorld()); actorItterator; ++actorItterator) {
-		APlayerController* PlayerController = *actorItterator;
-
-		if (!IsValid(PlayerController) || PlayerController->IsLocalController())
-			continue;
-
-		SendUpdatedReplicationData(PlayerController, playerInfosToUpdate);
-	}
-}
-
-void AApPlayerInfoSubsystem::SendUpdatedReplicationData(APlayerController* PlayerController, const TArray<FReplicatedFApPlayerInfo> playerInfos) const {
-	FPlayerInfoSubsystemUpdateReplicationMessage Message;
-	Message.PlayerInfos = playerInfos;
-
-	UE_LOG(LogApPlayerInfoSubsystem, Log, TEXT("Sending partial update replication message with %d items in the lookup array to player %s"), Message.PlayerInfos.Num(), *GetPathName(GetOwner()));
-
-	SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
-}
-
-void AApPlayerInfoSubsystem::InitializeData(TArray<FReplicatedFApPlayerInfo> playerInfos)
-{
-	for (const FReplicatedFApPlayerInfo& playerInfo : playerInfos)
-	{
-		PlayerNamesMap.Add(playerInfo, playerInfo.Name);
-		PlayerGamesMap.Add(playerInfo, playerInfo.Game);
-
-		if (playerInfo.Team >= 0) {
-			hasMultipleTeams = true;
+		for (const FItemAmount& Item : serverSubsystem->GetItems(listIdentifier))
+		{
+			Message.ItemData.Add(FReplicatedItemData(listIdentifier, Item.ItemClass, Item.Amount));
 		}
 	}
 
-	isInitialized = true;
+	UE_LOG(LogAdditionalDepotsReplicatorSubsystem, Log, TEXT("Sending initial replication message with %d items in the lookup array to player %s"), Message.ItemData.Num(), *GetPathName(GetOwner()));
+
+	SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 }
-*/
 
 void AAdditionalDepotsReplicatorSubsystem::OnPlayerControllerBeginPlay(const APlayerController* PlayerController)
 {
@@ -280,8 +127,16 @@ void AAdditionalDepotsReplicatorSubsystem::OnPlayerControllerBeginPlay(const APl
 	// We are Server, and this is a remote player. Send descriptor lookup array to the client
 	if (PlayerController->HasAuthority() && !PlayerController->IsLocalController())
 	{
-		//if (isInitialized) //if the server has already initialized, send the data right away, (likely this player is a late joiner)
-		//	SendInitialReplicationData(PlayerController);
+		AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+		if (!IsValid(serverSubsystem)) {
+			UE_LOG(LogAdditionalDepotsReplicatorSubsystem, Error, TEXT("AAdditionalDepotsReplicatorSubsystem::OnPlayerControllerBeginPlay() Failed to find AAdditionalDepotsServerSubsystem in the world"));
+			return;
+		}
+
+		if (!serverSubsystem->IsInitialized())
+			return;
+
+		SendInitialReplicationData(PlayerController);
 	}
 	// We are local player connected to a server, register the message handler
 	else if (!PlayerController->HasAuthority() && PlayerController->IsLocalController())
@@ -313,7 +168,7 @@ void AAdditionalDepotsReplicatorSubsystem::SendRawMessage(const APlayerControlle
 	}
 }
 
-void AAdditionalDepotsReplicatorSubsystem::OnRawDataReceived(TArray<uint8>&& InMessageData)
+void AAdditionalDepotsReplicatorSubsystem::OnRawDataReceived(TArray<uint8>&& InMessageData) const
 {
 	FMemoryReader RawMessageMemoryReader(InMessageData);
 	FNameAsStringProxyArchive NameAsStringProxyArchive(RawMessageMemoryReader);
@@ -326,51 +181,41 @@ void AAdditionalDepotsReplicatorSubsystem::OnRawDataReceived(TArray<uint8>&& InM
 
 	switch (MessageId)
 	{
-	case EAdditionalDepotsReplicatorMessageId::InitialReplication:
-	{
-		/*FPlayerInfoSubsystemInitialReplicationMessage InitialReplicationMessage;
-		NameAsStringProxyArchive << InitialReplicationMessage;
-
-		if (NameAsStringProxyArchive.IsError())
-			return;
-
-		ReceiveInitialReplicationData(InitialReplicationMessage);*/
-		break;
-	}
-	case EAdditionalDepotsReplicatorMessageId::UpdateItem:
-	{
-		/*FPlayerInfoSubsystemUpdateReplicationMessage partialReplicationMessage;
-		NameAsStringProxyArchive << partialReplicationMessage;
-
-		if (NameAsStringProxyArchive.IsError())
-			return;
-
-		ReceiveInitialReplicationData(partialReplicationMessage);*/
-		break;
-	}
-	}
-}
-
-/*
-void AApPlayerInfoSubsystem::ReceiveInitialReplicationData(const FPlayerInfoSubsystemInitialReplicationMessage& Message)
-{
-	UE_LOG(LogApPlayerInfoSubsystem, Log, TEXT("Received %d player infos from the server"), Message.PlayerInfos.Num());
-
-	InitializeData(Message.PlayerInfos);
-}
-
-void AApPlayerInfoSubsystem::ReceiveInitialReplicationData(const FPlayerInfoSubsystemUpdateReplicationMessage& Message)
-{
-	UE_LOG(LogApPlayerInfoSubsystem, Log, TEXT("Received %d player infos as a partial update from the server"), Message.PlayerInfos.Num());
-
-	for (const FReplicatedFApPlayerInfo& playerInfo : Message.PlayerInfos)
-	{
-		if (PlayerNamesMap.Contains(playerInfo))
+		case EAdditionalDepotsReplicatorMessageId::ItemData:
 		{
-			PlayerNamesMap[playerInfo] = playerInfo.Name;
+			FAdditionalDepotsItemReplicationMessage ItemReplicationMessage;
+			NameAsStringProxyArchive << ItemReplicationMessage;
+
+			if (NameAsStringProxyArchive.IsError())
+				return;
+
+			ReceiveItemReplicationData(ItemReplicationMessage);
+			break;
+		}
+		case EAdditionalDepotsReplicatorMessageId::ListConfig:
+		{
+			break;
 		}
 	}
 }
-*/
+
+
+void AAdditionalDepotsReplicatorSubsystem::ReceiveItemReplicationData(const FAdditionalDepotsItemReplicationMessage& ItemReplicationMessage) const
+{
+	UE_LOG(LogAdditionalDepotsReplicatorSubsystem, Log, TEXT("Received %d item replication datas from the server"), ItemReplicationMessage.ItemData.Num());
+
+	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(GetWorld());
+	if (!clientSubsystem)
+	{
+		UE_LOG(LogAdditionalDepotsReplicatorSubsystem, Error, TEXT("Failed to find AAdditionalDepotsClientSubsystem in the world"));
+		return;
+	}
+
+	for (const FReplicatedItemData& itemData : ItemReplicationMessage.ItemData)
+	{
+		//FName listIdentifier = FName(*itemData.ListIdentifier);
+		//clientSubsystem->AddItemData(listIdentifier, itemData.ItemClass, itemData.Amount);
+	}
+}
 
 #pragma optimize("", on)

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
+#include "SubsystemActorManager.h"
 #include "Engine/DataAsset.h"
 #include "AdditionalDepotsUtils.generated.h"
 
@@ -13,5 +14,23 @@ class UAdditionalDepotsUtils : public UObject
 	GENERATED_BODY()
 
 public:
-	static TArray<TSubclassOf<UAdditionalDepotsListDetails>> LoadAdditionalDepotLists();
+	static FORCEINLINE FName GetDimensionalDepotIdentifier()
+	{
+		return "DimensionalDepot";
+	}
+
+	static TArray<TSubclassOf<UAdditionalDepotDefinition>> LoadAdditionalDepotLists();
+
+	template<typename T>
+	static T* GetSubsystemActorIncludingParentClasses(UWorld* world) {
+		USubsystemActorManager* SubsystemActorManager = world->GetSubsystem<USubsystemActorManager>();
+		fgcheck(SubsystemActorManager);
+
+		for (const TPair<TSubclassOf<AModSubsystem>, AModSubsystem*>& subsystemEntry : SubsystemActorManager->GetSubsystemActors()) {
+			if (subsystemEntry.Key->IsChildOf(T::StaticClass()))
+				return Cast<T>(subsystemEntry.Value);
+		}
+
+		return nullptr;
+	}
 };

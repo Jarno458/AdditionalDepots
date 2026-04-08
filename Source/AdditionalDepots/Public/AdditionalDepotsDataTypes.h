@@ -13,7 +13,7 @@ enum class EFAAdditionalDepotsMaxType : uint8 {
 };
 
 UCLASS(Abstract, BlueprintType)
-class ADDITIONALDEPOTS_API UAdditionalDepotsListDetails : public UPrimaryDataAsset
+class ADDITIONALDEPOTS_API UAdditionalDepotDefinition : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 

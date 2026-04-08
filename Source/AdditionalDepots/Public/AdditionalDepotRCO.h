@@ -6,6 +6,7 @@
 
 #include "AdditionalDepotRCO.generated.h"
 
+class FLifetimeProperty;
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotRCO, Log, All);
 
 UCLASS()
@@ -24,5 +25,4 @@ public:
 
 	UFUNCTION(BlueprintCallable, Reliable, Server)
 	void ServerAddItem(FName listIdentifier, FItemAmount itemAmount);
-
 };

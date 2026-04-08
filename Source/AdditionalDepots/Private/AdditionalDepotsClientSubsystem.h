@@ -2,10 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
+#include "AdditionalDepotsUtils.h"
 #include "FGCentralStorageSubsystem.h"
 #include "ItemAmount.h"
-#include "Engine/DataAsset.h"
 #include "Subsystem/ModSubsystem.h"
+
 #include "AdditionalDepotsClientSubsystem.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsClientSubsystem, Log, All);
@@ -26,11 +27,11 @@ public:
 	{
 	}
 
-	FAdditionalDepotsListDetailsData(TSubclassOf<UAdditionalDepotsListDetails> details)
+	FAdditionalDepotsListDetailsData(TSubclassOf<UAdditionalDepotDefinition> details)
 	{
 		if (details)
 		{
-			if (const UAdditionalDepotsListDetails* cdo = details.GetDefaultObject())
+			if (const UAdditionalDepotDefinition* cdo = details.GetDefaultObject())
 			{
 				Name = cdo->Name;
 				MaxAmount = cdo->MaxAmount;
@@ -97,8 +98,6 @@ public:
 	FLinearColor Color = FLinearColor::White;
 };
 
-
-
 UCLASS()
 class AAdditionalDepotsClientSubsystem : public AModSubsystem
 {
@@ -112,6 +111,7 @@ public:
 	static AAdditionalDepotsClientSubsystem* Get(UObject* worldContext);
 
 protected:
+	virtual void PostActorCreated() override;
 	virtual void BeginPlay() override;
 
 private:
@@ -127,7 +127,7 @@ public:
 	UFUNCTION(BlueprintPure, DisplayName = "Get Depot Identifier for Dimensional Storage")
 	static FORCEINLINE FName GetDimensionalDepotIdentifier()
 	{
-		return "DimensionalDepot";
+		return UAdditionalDepotsUtils::GetDimensionalDepotIdentifier();
 	}
 
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Get Active Depot List", ToolTip = "Get Active Depot List (DimensionalDepot for the Dimensional Depot)"))
@@ -136,21 +136,20 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Select current Depot List", ToolTip = "Select current Depot List, use DimensionalDepot for the Dimensional Depot"))
 	void SetActiveList(FName listIdentifier);
 
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add Depot List", ToolTip = "Adds a new depot list definition to the subsystem, should be called on each client and server."))
-	void AddList(TSubclassOf<UAdditionalDepotsListDetails> details);
-
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All Depot Lists Identifiers")
 	TArray<FName> GetListIdentifiers();
 
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All items in Depot List")
 	TArray<FItemAmount> GetItems(FName listIdentifier);
 
-	UFUNCTION(BlueprintPure, DisplayName = "Get Depot List Details")
+	UFUNCTION(BlueprintPure)
 	FAdditionalDepotsListDetailsData GetListDetails(FName listIdentifier) const;
 
-	UFUNCTION(BlueprintPure, DisplayName = "Get Depot Item Details")
+	UFUNCTION(BlueprintPure)
 	FAdditionalDepotsItemDetails GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass) const;
 
-private:
+	void AddItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount);
 
+private:
+	void AddList(TSubclassOf<UAdditionalDepotDefinition> details);
 };

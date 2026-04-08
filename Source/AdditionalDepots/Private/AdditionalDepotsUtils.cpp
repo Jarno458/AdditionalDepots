@@ -9,27 +9,25 @@ DEFINE_LOG_CATEGORY(LogAdditionalDepotsUtils);
 
 #pragma optimize("", off)
 
-TArray<TSubclassOf<UAdditionalDepotsListDetails>> UAdditionalDepotsUtils::LoadAdditionalDepotLists(){
+TArray<TSubclassOf<UAdditionalDepotDefinition>> UAdditionalDepotsUtils::LoadAdditionalDepotLists() {
 	UE_LOGFMT(LogAdditionalDepotsUtils, Display, "AdditionalDepotsUtils::BeginPlay()");
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
-	const FString NativeParentClassValue = FString::Printf(TEXT("/Script/CoreUObject.Class'%s'"), *UAdditionalDepotsListDetails::StaticClass()->GetPathName());
+	const FString NativeParentClassValue = FString::Printf(TEXT("/Script/CoreUObject.Class'%s'"), *UAdditionalDepotDefinition::StaticClass()->GetPathName());
+	//const FString className(TEXT("AdditionalDepotsListDetails"));
 
 	FARFilter Filter;
 	Filter.ClassPaths.Add(UBlueprint::StaticClass()->GetClassPathName());
 	Filter.bRecursiveClasses = true;
 	Filter.TagsAndValues.Add(TEXT("NativeParentClass"), NativeParentClassValue);
-
-	//hardcoded alternative
-	//FString className(TEXT("AdditionalDepotsListDetails"));
-	//Filter.TagsAndValues.Add("PrimaryAssetType", className);
+	//Filter.TagsAndValues.Add("PrimaryAssetType", className); //hardcoded alternative
 
 	TArray<FAssetData> Assets;
 	AssetRegistry.GetAssets(Filter, Assets);
 
-	TArray<TSubclassOf<UAdditionalDepotsListDetails>> lists;
+	TArray<TSubclassOf<UAdditionalDepotDefinition>> lists;
 
 	for (const FAssetData& Asset : Assets)
 	{
@@ -42,7 +40,7 @@ TArray<TSubclassOf<UAdditionalDepotsListDetails>> UAdditionalDepotsUtils::LoadAd
 		if (!Generated)
 			continue;
 
-		if (!Generated->IsChildOf(UAdditionalDepotsListDetails::StaticClass()))
+		if (!Generated->IsChildOf(UAdditionalDepotDefinition::StaticClass()))
 			continue;
 
 		if (Generated->HasAnyClassFlags(CLASS_Abstract))
