@@ -118,6 +118,7 @@ private:
 	UPROPERTY()
 	AFGCentralStorageSubsystem* centralStorageSubsystem;
 
+	UPROPERTY()
 	TMap<FName, FAdditionalDepotsListDetailsData> depotLists;
 	TMap<FName, FMappedItemAmount> depotContents;
 

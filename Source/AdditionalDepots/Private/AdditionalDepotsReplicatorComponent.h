@@ -2,11 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "FGItemDescriptor.h"
-#include "Subsystem/ModSubsystem.h"
 
-#include "AdditionalDepotsReplicatorSubsystem.generated.h"
+#include "AdditionalDepotsReplicatorComponent.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsReplicatorSubsystem, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsReplicatorComponent, Log, All);
 
 constexpr uint8 RELIABLE_MESSAGING_CHANNEL_ID_ADDITIONAL_DEPOTS = 83; //random value to avoid collisions with other subsystems
 
@@ -45,31 +44,21 @@ struct FAdditionalDepotsItemReplicationMessage
 	friend FArchive& operator<<(FArchive& Ar, FAdditionalDepotsItemReplicationMessage& Message);
 };
 
-UCLASS()
-class AAdditionalDepotsReplicatorSubsystem : public AModSubsystem
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
+class UAdditionalDepotsReplicatorComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:
-	AAdditionalDepotsReplicatorSubsystem();
+	UAdditionalDepotsReplicatorComponent();
 
 	virtual void BeginPlay() override;
-
-	virtual void Tick(float dt) override;
-
-	static AAdditionalDepotsReplicatorSubsystem* Get(UWorld* world);
-	UFUNCTION(BlueprintPure, Category = "Schematic", DisplayName = "Internal Additional Depots Replication system", Meta = (DefaultToSelf = "worldContext"))
-	static AAdditionalDepotsReplicatorSubsystem* Get(UObject* worldContext);
+	
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 	void SendInitialReplicationData(const APlayerController* PlayerController) const;
 
-public:
-	// called from Player Controller mixin
-	UFUNCTION(BlueprintCallable)
-	void OnPlayerControllerBeginPlay(const APlayerController* PlayerController);
-
-protected:
 	void OnRawDataReceived(TArray<uint8>&& InMessageData) const;
 	void SendRawMessage(const APlayerController* PlayerController, EAdditionalDepotsReplicatorMessageId MessageId, const TFunctionRef<void(FArchive&)>& MessageSerializer) const;
 

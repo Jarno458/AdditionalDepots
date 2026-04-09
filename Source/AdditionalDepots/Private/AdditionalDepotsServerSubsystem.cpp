@@ -4,7 +4,6 @@
 #include "AdditionalDepotsUtils.h"
 #include "Subsystem/SubsystemActorManager.h"
 #include "Logging/StructuredLog.h"
-#include "AdditionalDepotsReplicatorSubsystem.h"
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsServerSubsystem);
 
@@ -43,6 +42,8 @@ void AAdditionalDepotsServerSubsystem::PostActorCreated()
 	const TArray<TSubclassOf<UAdditionalDepotDefinition>> lists = UAdditionalDepotsUtils::LoadAdditionalDepotLists();
 	for (const TSubclassOf<UAdditionalDepotDefinition>& list : lists)
 		AddList(list);
+
+	initialized = true;
 }
 
 void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, TArray<FItemAmount> items)
