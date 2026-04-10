@@ -1,7 +1,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AdditionalDepotsDataTypes.h"
 #include "FGItemDescriptor.h"
+#include "ItemAmount.h"
 
 #include "AdditionalDepotsReplicatorComponent.generated.h"
 
@@ -19,7 +21,7 @@ struct FReplicatedItemData {
 
 	// Value constructor
 	FReplicatedItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)
-		: ListIdentifier(listIdentifier.ToString()), ItemClass(itemClass), Amount(amount)
+		: ListIdentifier(listIdentifier), ItemClass(itemClass), Amount(amount)
 	{
 	}
 
@@ -29,11 +31,39 @@ struct FReplicatedItemData {
 	}
 
 public:
-	FString ListIdentifier;
+	FName ListIdentifier;
 
 	TSubclassOf<UFGItemDescriptor> ItemClass;
 
 	int32 Amount;
+};
+
+struct FReplicatedDepotConfigurationData
+{
+	// Value constructor
+	FReplicatedDepotConfigurationData(FName listIdentifier, FAdditionalDepotConfiguration config)
+		: ListIdentifier(listIdentifier),
+		MaxAmount(config.MaxAmount),
+		MaxType(config.MaxType),
+		CanDragItemsToInventory(config.CanDragItemsToInventory),
+		CanBeUsedWhenBuilding(config.CanBeUsedWhenBuilding)
+	{	
+	}
+
+	// Default constructor
+	FReplicatedDepotConfigurationData() : FReplicatedDepotConfigurationData(NAME_None, FAdditionalDepotConfiguration())
+	{
+	}
+
+	FName ListIdentifier;
+
+	int32 MaxAmount;
+
+	EFAAdditionalDepotsMaxType MaxType;
+
+	bool CanDragItemsToInventory;
+
+	bool CanBeUsedWhenBuilding;
 };
 
 struct FAdditionalDepotsItemReplicationMessage
@@ -42,6 +72,14 @@ struct FAdditionalDepotsItemReplicationMessage
 	TArray<FReplicatedItemData> ItemData;
 
 	friend FArchive& operator<<(FArchive& Ar, FAdditionalDepotsItemReplicationMessage& Message);
+};
+
+struct FAdditionalDepotsConfigReplicationMessage
+{
+	static constexpr EAdditionalDepotsReplicatorMessageId MessageId = EAdditionalDepotsReplicatorMessageId::ListConfig;
+	TArray<FReplicatedDepotConfigurationData> ConfigData;
+
+	friend FArchive& operator<<(FArchive& Ar, FAdditionalDepotsConfigReplicationMessage& Message);
 };
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
@@ -53,7 +91,7 @@ public:
 	UAdditionalDepotsReplicatorComponent();
 
 	virtual void BeginPlay() override;
-	
+
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
@@ -63,5 +101,11 @@ private:
 	void SendRawMessage(const APlayerController* PlayerController, EAdditionalDepotsReplicatorMessageId MessageId, const TFunctionRef<void(FArchive&)>& MessageSerializer) const;
 
 	void ReceiveItemReplicationData(const FAdditionalDepotsItemReplicationMessage& ItemReplicationMessage) const;
+	void ReceiveConfigReplicationData(const FAdditionalDepotsConfigReplicationMessage& ConfigReplicationMessage) const;
+
+	UFUNCTION() //for event binding
+	void SendUpdatedItemReplicationData(FName ListIdentifier, TArray<FItemAmount> items);
+	UFUNCTION() //for event binding
+	void SendUpdatedConfiguration(FName ListIdentifier, FAdditionalDepotConfiguration config);
 };
 

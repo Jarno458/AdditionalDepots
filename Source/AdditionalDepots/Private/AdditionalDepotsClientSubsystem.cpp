@@ -143,6 +143,26 @@ void AAdditionalDepotsClientSubsystem::AddItemData(FName listIdentifier, TSubcla
 	depotContents[listIdentifier].ItemAmounts[itemClass] = amount;
 }
 
+void AAdditionalDepotsClientSubsystem::UpdateConfiguration(FName listIdentifier, const FAdditionalDepotConfiguration& config)
+{
+	if (!listIdentifier.IsValid())
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::UpdateConfiguration() - Invalid list identifier!");
+		return;
+	}
+
+	if (!depotLists.Contains(listIdentifier))
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Warning, "AAdditionalDepotsClientSubsystem::UpdateConfiguration(listIdentifier: {0}) - List identifier not found!", listIdentifier.ToString());
+		return;
+	}
+
+	depotLists[listIdentifier].MaxAmount = config.MaxAmount;
+	depotLists[listIdentifier].MaxType = config.MaxType;
+	depotLists[listIdentifier].CanDragItemsToInventory = config.CanDragItemsToInventory;
+	depotLists[listIdentifier].CanDragItemsToInventory = config.CanBeUsedWhenBuilding;
+}
+
 void AAdditionalDepotsClientSubsystem::AddList(TSubclassOf<UAdditionalDepotDefinition> details)
 {
 	if (!details)

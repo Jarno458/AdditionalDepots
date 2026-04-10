@@ -66,78 +66,85 @@ void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, TAr
 		return;
 	}
 
-	depotContents.FindOrAdd(listIdentifier);
+	TArray<TSubclassOf<UFGItemDescriptor>> updatedItems;
+	{
+		FScopeLock lock(&depotLock);
 
-	depotContents[listIdentifier].ItemAmounts.Empty();
+		FMappedItemAmount& depotContent = depotContents.FindOrAdd(listIdentifier);
 
-	for (const FItemAmount& item : items)
-		depotContents[listIdentifier].ItemAmounts.Add(item.ItemClass, item.Amount);
+		depotContent.ItemAmounts.Empty();
+
+		for (const FItemAmount& item : items)
+			depotContent.ItemAmounts.Add(item.ItemClass, item.Amount);
+
+		depotContent.ItemAmounts.GenerateKeyArray(updatedItems);
+	}
+
+	BroadCastNewItemAmounts(listIdentifier, updatedItems);
 }
 
 int32 AAdditionalDepotsServerSubsystem::AddItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)
 {
-	if (!listIdentifier.IsValid())
-		return 0;
+	int32 added = AddItemInternal(listIdentifier, itemClass, amount);
 
-	depotContents.FindOrAdd(listIdentifier).ItemAmounts.FindOrAdd(itemClass);
+	BroadCastNewItemAmounts(listIdentifier, { itemClass });
 
-	const int64 Current = depotContents[listIdentifier].ItemAmounts[itemClass];
-	const int64 Delta = amount;
-	const int64 NewValue64 = Current + Delta;
-	const int32 Clamped = static_cast<int32>(FMath::Clamp<int64>(NewValue64, 0, INT32_MAX));
-
-	depotContents[listIdentifier].ItemAmounts[itemClass] = Clamped;
-	const int32 Added = static_cast<int32>(FMath::Clamp<int64>(static_cast<int64>(Clamped) - Current, 0, INT32_MAX));
-
-	if (Added != 0)
-		OnItemAdded.Broadcast(listIdentifier, itemClass, Added);
-
-	return Added;
+	return added;
 }
 
 TArray<FItemAmount> AAdditionalDepotsServerSubsystem::AddItems(FName listIdentifier, TArray<FItemAmount> items)
 {
-	//TODO should only cause 1 replication
-	for (const FItemAmount& Item : items)
-		AddItem(listIdentifier, Item.ItemClass, Item.Amount);
+	TMap<TSubclassOf<UFGItemDescriptor>, int32> addedItems;
 
-	return TArray<FItemAmount>(); //TODO fix me
+	for (const FItemAmount& Item : items)
+	{
+		int32 numberOfAdded = AddItem(listIdentifier, Item.ItemClass, Item.Amount);
+
+		int32& addedItem = addedItems.FindOrAdd(Item.ItemClass, 0);
+		addedItem += numberOfAdded;
+	}
+
+	TArray<TSubclassOf<UFGItemDescriptor>> updatedItems;
+	addedItems.GenerateKeyArray(updatedItems);
+	BroadCastNewItemAmounts(listIdentifier, updatedItems);
+
+	TArray<FItemAmount> result;
+	for (const TPair<TSubclassOf<UFGItemDescriptor>, int32>& pair : addedItems)
+		result.Add(FItemAmount(pair.Key, pair.Value));
+
+	return result;
 }
 
 int32 AAdditionalDepotsServerSubsystem::RemoveItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)
 {
-	if (!listIdentifier.IsValid())
-		return 0;
+	int32 removed = RemoveItemInternal(listIdentifier, itemClass, amount);
 
-	FMappedItemAmount* ListContents = depotContents.Find(listIdentifier);
-	if (!ListContents)
-		return 0;
+	BroadCastNewItemAmounts(listIdentifier, { itemClass });
 
-	int32* ExistingPtr = ListContents->ItemAmounts.Find(itemClass);
-	if (!ExistingPtr)
-		return 0;
-
-	const int32 Current = *ExistingPtr;
-	const int32 NewValue = Current - amount;
-
-	const int32 Clamped = FMath::Clamp<int32>(NewValue, 0, INT32_MAX);
-	const int32 Removed = FMath::Clamp<int32>(Current - Clamped, 0, INT32_MAX);
-
-	*ExistingPtr = Clamped;
-
-	if (Removed != 0)
-		OnItemRemoved.Broadcast(listIdentifier, itemClass, Removed);
-
-	return Removed;
+	return removed;
 }
 
 TArray<FItemAmount> AAdditionalDepotsServerSubsystem::RemoveItems(FName listIdentifier, TArray<FItemAmount> items)
 {
-	//TODO should only cause 1 replication
-	for (const FItemAmount& Item : items)
-		RemoveItem(listIdentifier, Item.ItemClass, Item.Amount);
+	TMap<TSubclassOf<UFGItemDescriptor>, int32> removedItems;
 
-	return TArray<FItemAmount>(); //TODO fix me
+	for (const FItemAmount& Item : items)
+	{
+		int32 numberOfRemoved = RemoveItem(listIdentifier, Item.ItemClass, Item.Amount);
+
+		int32& removedItem = removedItems.FindOrAdd(Item.ItemClass, 0);
+		removedItem += numberOfRemoved;
+	}
+
+	TArray<TSubclassOf<UFGItemDescriptor>> updatedItems;
+	removedItems.GenerateKeyArray(updatedItems);
+	BroadCastNewItemAmounts(listIdentifier, updatedItems);
+
+	TArray<FItemAmount> result;
+	for (const TPair<TSubclassOf<UFGItemDescriptor>, int32>& pair : removedItems)
+		result.Add(FItemAmount(pair.Key, pair.Value));
+
+	return result;
 }
 
 TArray<FName> AAdditionalDepotsServerSubsystem::GetListIdentifiers()
@@ -156,14 +163,63 @@ TArray<FItemAmount> AAdditionalDepotsServerSubsystem::GetItems(FName listIdentif
 
 	if (listIdentifier == UAdditionalDepotsUtils::GetDimensionalDepotIdentifier())
 	{
-		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::GetItems({0}) Cannot get contents of dimensional storage, use the AFGCentralStorageSubsystem instead");
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::GetItems({0}) Cannot get contents of dimensional storage, use the AFGCentralStorageSubsystem instead", listIdentifier.ToString());
 		return items;
 	}
 
+	FScopeLock lock(&depotLock);
 	for (const TPair<TSubclassOf<UFGItemDescriptor>, int32>& item : depotContents[listIdentifier].ItemAmounts)
 		items.Add(FItemAmount(item.Key, item.Value));
 
 	return items;
+}
+
+FAdditionalDepotConfiguration AAdditionalDepotsServerSubsystem::GetConfiguration(FName listIdentifier)
+{
+	if (!listIdentifier.IsValid() || !depotConfigurations.Contains(listIdentifier))
+		return FAdditionalDepotConfiguration();
+
+	return depotConfigurations[listIdentifier];
+}
+
+void AAdditionalDepotsServerSubsystem::UpdateCanDragToInventory(FName listIdentifier, bool canDrag)
+{
+	if (!listIdentifier.IsValid() || !depotConfigurations.Contains(listIdentifier))
+		return;
+
+	if (depotConfigurations[listIdentifier].CanDragItemsToInventory == canDrag)
+		return;
+
+	depotConfigurations[listIdentifier].CanDragItemsToInventory = canDrag;
+
+	BroadCastNewConfiguration(listIdentifier);
+}
+
+void AAdditionalDepotsServerSubsystem::UpdateCanBeUsedForBuildingAndCrafting(FName listIdentifier, bool canBeUsed)
+{
+	if (!listIdentifier.IsValid() || !depotConfigurations.Contains(listIdentifier))
+		return;
+
+	if (depotConfigurations[listIdentifier].CanBeUsedWhenBuilding == canBeUsed)
+		return;
+
+	depotConfigurations[listIdentifier].CanBeUsedWhenBuilding = canBeUsed;
+
+	BroadCastNewConfiguration(listIdentifier);
+}
+
+void AAdditionalDepotsServerSubsystem::UpdateMaxAmount(FName listIdentifier, EFAAdditionalDepotsMaxType maxType, int max)
+{
+	if (!listIdentifier.IsValid() || !depotConfigurations.Contains(listIdentifier))
+		return;
+
+	if (depotConfigurations[listIdentifier].MaxAmount == max && depotConfigurations[listIdentifier].MaxType == maxType)
+		return;
+
+	depotConfigurations[listIdentifier].MaxAmount = max;
+	depotConfigurations[listIdentifier].MaxType = maxType;
+
+	BroadCastNewConfiguration(listIdentifier);
 }
 
 void AAdditionalDepotsServerSubsystem::AddList(TSubclassOf<UAdditionalDepotDefinition> details)
@@ -181,7 +237,138 @@ void AAdditionalDepotsServerSubsystem::AddList(TSubclassOf<UAdditionalDepotDefin
 		return;
 	}
 
-	depotConfigurations.FindOrAdd(cdo->Identifier, FAdditionalDepotsDepotConfig(details));
+	FAdditionalDepotConfiguration config;
+	config.CanBeUsedWhenBuilding = cdo->CanBeUsedWhenBuilding;
+	config.CanDragItemsToInventory = cdo->CanDragItemsToInventory;
+	config.MaxAmount = cdo->MaxAmount;
+	config.MaxType = cdo->MaxType;
+
+	persistInSave.FindOrAdd(cdo->Identifier, cdo->PersistInSaveGame);
+	depotConfigurations.FindOrAdd(cdo->Identifier, config);
+	depotContents.FindOrAdd(cdo->Identifier, FMappedItemAmount());
+}
+
+int32 AAdditionalDepotsServerSubsystem::AddItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, bool broadcast)
+{
+	if (!listIdentifier.IsValid())
+		return 0;
+
+	int32 Added;
+	{
+		FScopeLock lock(&depotLock);
+
+		depotContents.FindOrAdd(listIdentifier).ItemAmounts.FindOrAdd(itemClass);
+
+		const int64 Current = depotContents[listIdentifier].ItemAmounts[itemClass];
+		const int64 Delta = amount;
+		const int64 NewValue64 = Current + Delta;
+		const int32 Clamped = static_cast<int32>(FMath::Clamp<int64>(NewValue64, 0, INT32_MAX));
+
+		depotContents[listIdentifier].ItemAmounts[itemClass] = Clamped;
+		Added = static_cast<int32>(FMath::Clamp<int64>(static_cast<int64>(Clamped) - Current, 0, INT32_MAX));
+	}
+
+	if (Added != 0 && IsInitialized() && broadcast)
+		OnItemAdded.Broadcast(listIdentifier, itemClass, Added);
+
+	return Added;
+}
+
+int32 AAdditionalDepotsServerSubsystem::RemoveItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, bool broadcast)
+{
+	if (!listIdentifier.IsValid())
+		return 0;
+
+	int32 Removed;
+	{
+		FScopeLock lock(&depotLock);
+
+		FMappedItemAmount* ListContents = depotContents.Find(listIdentifier);
+		if (!ListContents)
+			return 0;
+
+		int32* ExistingPtr = ListContents->ItemAmounts.Find(itemClass);
+		if (!ExistingPtr)
+			return 0;
+
+		const int32 Current = *ExistingPtr;
+		const int32 NewValue = Current - amount;
+
+		const int32 Clamped = FMath::Clamp<int32>(NewValue, 0, INT32_MAX);
+		Removed = FMath::Clamp<int32>(Current - Clamped, 0, INT32_MAX);
+
+		*ExistingPtr = Clamped;
+	}
+
+	if (Removed != 0 && IsInitialized() && broadcast)
+		OnItemRemoved.Broadcast(listIdentifier, itemClass, Removed);
+
+	return Removed;
+}
+
+void AAdditionalDepotsServerSubsystem::BroadCastNewItemAmounts(FName listIdentifier, TArray<TSubclassOf<UFGItemDescriptor>> itemClasses)
+{
+	if (!initialized)
+		return;
+
+	TArray<FItemAmount> items;
+	{
+		FScopeLock lock(&depotLock);
+		for (const TSubclassOf<UFGItemDescriptor>& itemClass : itemClasses)
+		{
+			if (depotContents.Contains(listIdentifier) && depotContents[listIdentifier].ItemAmounts.Contains(itemClass))
+				items.Add(FItemAmount(itemClass, depotContents[listIdentifier].ItemAmounts[itemClass]));
+			else
+				items.Add(FItemAmount(itemClass, 0));
+		}
+	}
+
+	OnItemAmountUpdated.Broadcast(listIdentifier, items);
+}
+
+void AAdditionalDepotsServerSubsystem::BroadCastNewConfiguration(FName listIdentifier)
+{
+	if (!initialized || !depotConfigurations.Contains(listIdentifier))
+		return;
+
+	OnConfigurationUpdated.Broadcast(listIdentifier, depotConfigurations[listIdentifier]);
+}
+
+void AAdditionalDepotsServerSubsystem::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
+{
+	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PreSaveGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
+
+	for (TPair<FName, FMappedItemAmount> DepotContent : depotContents)
+	{
+		if (persistInSave.Contains(DepotContent.Key) && persistInSave[DepotContent.Key])
+		{
+			FAAdditionalDepotsSaveableDepotContents saveable;
+			saveable.ListIdentifier = DepotContent.Key;
+			saveable.Contents = DepotContent.Value;
+
+			saveableDepotContents.Add(saveable);
+		}
+	}
+}
+
+void AAdditionalDepotsServerSubsystem::PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
+{
+	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PostSaveGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
+
+	for (const FAAdditionalDepotsSaveableDepotContents& saveable : saveableDepotContents)
+		depotContents.FindOrAdd(saveable.ListIdentifier) = saveable.Contents;
+
+	saveableDepotContents.Empty();
+}
+
+void AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
+{
+	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
+
+	/*for (const FName& listIdentifier : depotConfigurations)
+	{
+		//TODO check for config changes and the need to replicate
+	}*/
 }
 
 #pragma optimize("", on)

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
+#include "FGSaveInterface.h"
 #include "ItemAmount.h"
 #include "Subsystem/ModSubsystem.h"
 #include "AdditionalDepotsServerSubsystem.generated.h"
@@ -9,57 +10,52 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsServerSubsystem, Log, All);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
-	FADOnDepotItemsRemoved,
+	FADOnDepotItemsAddedOrRemoved,
 	FName, ListIdentifier,
 	TSubclassOf<UFGItemDescriptor>, ItemClass,
 	int, Amount
 );
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
+	FADOnDepotItemAmountUpdated,
+	FName, ListIdentifier,
+	TArray<FItemAmount>, Items
+);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
+	FADOnDepotConfigurationUpdated,
+	FName, ListIdentifier,
+	FAdditionalDepotConfiguration, Configuration
+);
+
 USTRUCT()
-struct FAdditionalDepotsDepotConfig
+struct FAAdditionalDepotsSaveableDepotContents
 {
 	GENERATED_BODY()
 
 public:
-	FAdditionalDepotsDepotConfig() :
-		MaxAmount(0),
-		MaxType(EFAAdditionalDepotsMaxType::None),
-		CanDragItemsToInventory(false),
-		PersistInSaveGame(false)
-	{
-	}
+	UPROPERTY(SaveGame)
+	FName ListIdentifier;
 
-	FAdditionalDepotsDepotConfig(TSubclassOf<UAdditionalDepotDefinition> details)
-	{
-		if (details)
-		{
-			if (const UAdditionalDepotDefinition* cdo = details.GetDefaultObject())
-			{
-				MaxAmount = cdo->MaxAmount;
-				MaxType = cdo->MaxType;
-				CanDragItemsToInventory = cdo->CanDragItemsToInventory;
-				PersistInSaveGame = cdo->PersistInSaveGame;
-			}
-		}
-	}
-
-	UPROPERTY()
-	int32 MaxAmount;
-
-	UPROPERTY()
-	EFAAdditionalDepotsMaxType MaxType;
-
-	UPROPERTY()
-	bool CanDragItemsToInventory;
-
-	UPROPERTY()
-	bool PersistInSaveGame;
+	UPROPERTY(SaveGame)
+	FMappedItemAmount Contents;
 };
 
+
 UCLASS()
-class ADDITIONALDEPOTS_API AAdditionalDepotsServerSubsystem : public AModSubsystem
+class ADDITIONALDEPOTS_API AAdditionalDepotsServerSubsystem : public AModSubsystem, public IFGSaveInterface
 {
 	GENERATED_BODY()
+
+	// Begin IFGSaveInterface
+	virtual void PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
+	virtual void PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
+	virtual void PreLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override {};
+	virtual void PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
+	virtual void GatherDependencies_Implementation(TArray<UObject*>& out_dependentObjects) override {};
+	virtual bool NeedTransform_Implementation() override { return false; };
+	virtual bool ShouldSave_Implementation() const override { return true; };
+	// End IFSaveInterface
 
 public:
 	AAdditionalDepotsServerSubsystem();
@@ -73,10 +69,15 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
-	TMap<FName, FAdditionalDepotsDepotConfig> depotConfigurations;
+	TMap<FName, FAdditionalDepotConfiguration> depotConfigurations;
 	TMap<FName, FMappedItemAmount> depotContents;
+	TMap<FName, bool> persistInSave;
+
+	FCriticalSection depotLock;
 
 	bool initialized;
+
+	TArray<FAAdditionalDepotsSaveableDepotContents> saveableDepotContents;
 
 public:
 	FORCEINLINE bool IsInitialized() const { return initialized; }
@@ -102,12 +103,37 @@ public:
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All items in Depot List")
 	TArray<FItemAmount> GetItems(FName listIdentifier);
 
-	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
-	FADOnDepotItemsRemoved OnItemRemoved;
+	UFUNCTION(BlueprintCallable, DisplayName = "Get All configuration for Depot List")
+	FAdditionalDepotConfiguration GetConfiguration(FName listIdentifier);
+
+	UFUNCTION(BlueprintCallable, DisplayName = "Update Can Drag Items To Inventory")
+	void UpdateCanDragToInventory(FName listIdentifier, bool canDrag);
+
+	UFUNCTION(BlueprintCallable, DisplayName = "Update Can Be Used For Building And Crafting")
+	void UpdateCanBeUsedForBuildingAndCrafting(FName listIdentifier, bool canBeUsed);
+
+	UFUNCTION(BlueprintCallable, DisplayName = "Update Max Amount")
+	void UpdateMaxAmount(FName listIdentifier, EFAAdditionalDepotsMaxType maxType, int max);
 
 	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
-	FADOnDepotItemsRemoved OnItemAdded;
+	FADOnDepotItemsAddedOrRemoved OnItemRemoved;
+
+	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
+	FADOnDepotItemsAddedOrRemoved OnItemAdded;
+
+	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
+	FADOnDepotItemAmountUpdated OnItemAmountUpdated;
+
+	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
+	FADOnDepotConfigurationUpdated OnConfigurationUpdated;
 
 private:
 	void AddList(TSubclassOf<UAdditionalDepotDefinition> details);
+
+	int32 AddItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, bool broadcast = true);
+	int32 RemoveItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, bool broadcast = true);
+
+
+	void BroadCastNewItemAmounts(FName listIdentifier, TArray<TSubclassOf<UFGItemDescriptor>> itemClasses);
+	void BroadCastNewConfiguration(FName listIdentifier);
 };

@@ -18,7 +18,7 @@ struct FAdditionalDepotsListDetailsData
 
 public:
 	FAdditionalDepotsListDetailsData() : 
-		Name(""),
+		Name(FText::GetEmpty()),
 		MaxAmount(0),
 		MaxType(EFAAdditionalDepotsMaxType::None),
 		Color(FLinearColor::White),
@@ -45,7 +45,7 @@ public:
 
 public:
 	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
-	FString Name;
+	FText Name;
 
 	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
 	int32 MaxAmount = 0;
@@ -150,6 +150,8 @@ public:
 	FAdditionalDepotsItemDetails GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass) const;
 
 	void AddItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount);
+
+	void UpdateConfiguration(FName listIdentifier, const FAdditionalDepotConfiguration& config);
 
 private:
 	void AddList(TSubclassOf<UAdditionalDepotDefinition> details);

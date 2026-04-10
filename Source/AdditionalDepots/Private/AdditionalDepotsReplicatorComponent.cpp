@@ -3,7 +3,7 @@
 #include "AdditionalDepotsClientSubsystem.h"
 #include "AdditionalDepotsServerSubsystem.h"
 #include "EngineUtils.h"
-#include "NameAsStringProxyArchive.h"
+#include "ObjectAndNameAsStringProxyArchive.h"
 #include "StructuredLog.h"
 #include "ReliableMessagingPlayerComponent.h"
 
@@ -14,7 +14,7 @@ DEFINE_LOG_CATEGORY(LogAdditionalDepotsReplicatorComponent);
 FArchive& operator<<(FArchive& Ar, FReplicatedItemData& Info)
 {
 	Ar << Info.ListIdentifier;
-	//Ar << Info.ItemClass;
+	Ar << Info.ItemClass;
 	Ar << Info.Amount;
 	return Ar;
 }
@@ -22,6 +22,22 @@ FArchive& operator<<(FArchive& Ar, FReplicatedItemData& Info)
 FArchive& operator<<(FArchive& Ar, FAdditionalDepotsItemReplicationMessage& Message)
 {
 	Ar << Message.ItemData;
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, FReplicatedDepotConfigurationData& Info)
+{
+	Ar << Info.ListIdentifier;
+	Ar << Info.MaxAmount;
+	Ar << Info.MaxType;
+	Ar << Info.CanDragItemsToInventory;
+	Ar << Info.CanBeUsedWhenBuilding;
+	return Ar;
+}
+
+FArchive& operator<<(FArchive& Ar, FAdditionalDepotsConfigReplicationMessage& Message)
+{
+	Ar << Message.ConfigData;
 	return Ar;
 }
 
@@ -42,6 +58,19 @@ void UAdditionalDepotsReplicatorComponent::BeginPlay() {
 
 	if (!IsValid(PlayerController))
 		return;
+
+	const ENetMode ActiveNetMode = GetWorld()->GetNetMode();
+	if (ActiveNetMode != ENetMode::NM_Client)
+	{
+		AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+		if (!IsValid(serverSubsystem)) {
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Error, "UAdditionalDepotsReplicatorComponent::OnPlayerControllerBeginPlay() Failed to find AAdditionalDepotsServerSubsystem in the world");
+			return;
+		}
+
+		serverSubsystem->OnItemAmountUpdated.AddDynamic(this, &UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData);
+		serverSubsystem->OnConfigurationUpdated.AddDynamic(this, &UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration);
+	}
 
 	// We are Server, and this is a remote player. Send descriptor lookup array to the client
 	if (PlayerController->HasAuthority() && !PlayerController->IsLocalController())
@@ -68,15 +97,16 @@ void UAdditionalDepotsReplicatorComponent::BeginPlay() {
 				UReliableMessagingPlayerComponent::FOnBulkDataReplicationPayloadReceived::CreateUObject(this, &UAdditionalDepotsReplicatorComponent::OnRawDataReceived));
 		}
 	}
-	// if we are a local player, this BeginPlay fires way before the server subsystem is initialized, so we need to wait and send the data in TickComponent
 }
 
-void UAdditionalDepotsReplicatorComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
+void UAdditionalDepotsReplicatorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	//cant use Authority checks here because its locally spawned
-	const ENetMode ActiveNetMode = GetWorld()->GetNetMode();
-	if (ActiveNetMode == ENetMode::NM_Client)
+	const APlayerController* tickingPlayerController = CastChecked<APlayerController>(GetOwner());
+	if (!IsValid(tickingPlayerController))
+		return;
+
+	if (!tickingPlayerController->HasAuthority())
 	{
 		SetComponentTickEnabled(false);
 		return;
@@ -116,31 +146,40 @@ void UAdditionalDepotsReplicatorComponent::SendInitialReplicationData(const APla
 	FAdditionalDepotsItemReplicationMessage Message;
 	Message.ItemData = TArray<FReplicatedItemData>();
 
+	FAdditionalDepotsConfigReplicationMessage ConfigMessage;
+	ConfigMessage.ConfigData = TArray<FReplicatedDepotConfigurationData>();
+
 	for (FName listIdentifier : serverSubsystem->GetListIdentifiers())
 	{
 		for (const FItemAmount& Item : serverSubsystem->GetItems(listIdentifier))
 		{
 			Message.ItemData.Add(FReplicatedItemData(listIdentifier, Item.ItemClass, Item.Amount));
 		}
+
+		FAdditionalDepotConfiguration Config = serverSubsystem->GetConfiguration(listIdentifier);
+
+		ConfigMessage.ConfigData.Add(FReplicatedDepotConfigurationData(listIdentifier, Config));
 	}
 
 	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendInitialReplicationData() Sending initial replication message with {0} items in the lookup array to player", Message.ItemData.Num());
 
 	SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
+	SendRawMessage(PlayerController, ConfigMessage.MessageId, [&](FArchive& Ar) { Ar << ConfigMessage; });
 }
 
 void UAdditionalDepotsReplicatorComponent::SendRawMessage(const APlayerController* PlayerController, EAdditionalDepotsReplicatorMessageId MessageId, const TFunctionRef<void(FArchive&)>& MessageSerializer) const
 {
 	TArray<uint8> RawMessageData;
 	FMemoryWriter RawMessageMemoryWriter(RawMessageData);
-	FNameAsStringProxyArchive NameAsStringProxyArchive(RawMessageMemoryWriter);
+	FObjectAndNameAsStringProxyArchive ProxyArchive(RawMessageMemoryWriter, true);
 
-	NameAsStringProxyArchive << MessageId;
-	MessageSerializer(NameAsStringProxyArchive);
+	ProxyArchive << MessageId;
+	MessageSerializer(ProxyArchive);
 
 	// if we are our own target
 	if (PlayerController->IsLocalController())
 	{
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendRawMessage() Sending raw message {0} to local player", RawMessageData.Num());
 		OnRawDataReceived(MoveTemp(RawMessageData));
 	}
 	else
@@ -157,34 +196,41 @@ void UAdditionalDepotsReplicatorComponent::SendRawMessage(const APlayerControlle
 void UAdditionalDepotsReplicatorComponent::OnRawDataReceived(TArray<uint8>&& InMessageData) const
 {
 	FMemoryReader RawMessageMemoryReader(InMessageData);
-	FNameAsStringProxyArchive NameAsStringProxyArchive(RawMessageMemoryReader);
+	FObjectAndNameAsStringProxyArchive ProxyArchive(RawMessageMemoryReader, true);
 
 	EAdditionalDepotsReplicatorMessageId MessageId{};
-	NameAsStringProxyArchive << MessageId;
+	ProxyArchive << MessageId;
 
 	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::OnRawDataReceived() Received raw message with {0} bytes", InMessageData.Num());
-	if (NameAsStringProxyArchive.IsError()) return;
+	if (ProxyArchive.IsError()) return;
 
 	switch (MessageId)
 	{
-	case EAdditionalDepotsReplicatorMessageId::ItemData:
-	{
-		FAdditionalDepotsItemReplicationMessage ItemReplicationMessage;
-		NameAsStringProxyArchive << ItemReplicationMessage;
+		case EAdditionalDepotsReplicatorMessageId::ItemData:
+		{
+			FAdditionalDepotsItemReplicationMessage ItemReplicationMessage;
+			ProxyArchive << ItemReplicationMessage;
 
-		if (NameAsStringProxyArchive.IsError())
-			return;
+			if (ProxyArchive.IsError())
+				return;
 
-		ReceiveItemReplicationData(ItemReplicationMessage);
-		break;
-	}
-	case EAdditionalDepotsReplicatorMessageId::ListConfig:
-	{
-		break;
-	}
+			ReceiveItemReplicationData(ItemReplicationMessage);
+			break;
+		}
+		case EAdditionalDepotsReplicatorMessageId::ListConfig:
+		{
+
+			FAdditionalDepotsConfigReplicationMessage ConfigReplicationMessage;
+			ProxyArchive << ConfigReplicationMessage;
+
+			if (ProxyArchive.IsError())
+				return;
+
+			ReceiveConfigReplicationData(ConfigReplicationMessage);
+			break;
+		}
 	}
 }
-
 
 void UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData(const FAdditionalDepotsItemReplicationMessage& ItemReplicationMessage) const
 {
@@ -199,8 +245,70 @@ void UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData(const FAdd
 
 	for (const FReplicatedItemData& itemData : ItemReplicationMessage.ItemData)
 	{
-		//FName listIdentifier = FName(*itemData.ListIdentifier);
-		//clientSubsystem->AddItemData(listIdentifier, itemData.ItemClass, itemData.Amount);
+		clientSubsystem->AddItemData(itemData.ListIdentifier, itemData.ItemClass, itemData.Amount);
+	}
+}
+
+void UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData(const FAdditionalDepotsConfigReplicationMessage& ConfigReplicationMessage) const
+{
+	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData() Received {0} configuration replication datas from the server", ConfigReplicationMessage.ConfigData.Num());
+
+	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(GetWorld());
+	if (!clientSubsystem)
+	{
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Error, "UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData() Failed to find AAdditionalDepotsClientSubsystem in the world");
+		return;
+	}
+
+	for (const FReplicatedDepotConfigurationData& configData : ConfigReplicationMessage.ConfigData)
+	{
+		FAdditionalDepotConfiguration config;
+
+		config.MaxAmount = configData.MaxAmount;
+		config.MaxType = configData.MaxType;
+		config.CanDragItemsToInventory = configData.CanDragItemsToInventory;
+		config.CanBeUsedWhenBuilding = configData.CanBeUsedWhenBuilding;
+
+		clientSubsystem->UpdateConfiguration(configData.ListIdentifier, config);
+	}
+}
+
+void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName ListIdentifier, TArray<FItemAmount> items)
+{
+	FAdditionalDepotsItemReplicationMessage Message;
+	Message.ItemData = TArray<FReplicatedItemData>();
+
+	for (const FItemAmount& Item : items)
+	{
+		Message.ItemData.Add(FReplicatedItemData(ListIdentifier, Item.ItemClass, Item.Amount));
+	}
+
+	//TODO could optimize using relevancy, that would be fancy
+	for (TActorIterator<APlayerController> actorIterator(GetWorld()); actorIterator; ++actorIterator) {
+		const APlayerController* PlayerController = *actorIterator;
+		if (!IsValid(PlayerController))
+			continue;
+
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated replication message with {0} items in the lookup array to player", Message.ItemData.Num());
+
+		SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
+	}
+}
+
+void UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration(FName ListIdentifier, FAdditionalDepotConfiguration config)
+{
+	FAdditionalDepotsConfigReplicationMessage Message;
+	Message.ConfigData = TArray<FReplicatedDepotConfigurationData>();
+	Message.ConfigData.Add(FReplicatedDepotConfigurationData(ListIdentifier, config));
+
+	for (TActorIterator<APlayerController> actorIterator(GetWorld()); actorIterator; ++actorIterator) {
+		const APlayerController* PlayerController = *actorIterator;
+		if (!IsValid(PlayerController))
+			continue;
+
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration() Sending updated configuration message with {0} configurations in the lookup array to player", Message.ConfigData.Num());
+
+		SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 	}
 }
 
