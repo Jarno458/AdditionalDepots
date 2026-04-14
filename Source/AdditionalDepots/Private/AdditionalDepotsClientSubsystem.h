@@ -23,7 +23,8 @@ public:
 		MaxType(EFAAdditionalDepotsMaxType::None),
 		Color(FLinearColor::White),
 		CanDragItemsToInventory(false),
-		Icon(nullptr)
+		Icon(nullptr),
+		CanBeUsedWhenBuilding(false)
 	{
 	}
 
@@ -39,6 +40,7 @@ public:
 				Color = cdo->Color;
 				CanDragItemsToInventory = cdo->CanDragItemsToInventory;
 				Icon = cdo->Icon;
+				CanBeUsedWhenBuilding = cdo->CanBeUsedWhenBuilding;
 			}
 		}
 	}
@@ -61,6 +63,34 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
 	UTexture2D* Icon = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	bool CanBeUsedWhenBuilding = false;
+};
+
+USTRUCT(BlueprintType)
+struct FAdditionalDepotsColorAmount
+{
+	GENERATED_BODY()
+
+public:
+	FAdditionalDepotsColorAmount() :
+		Amount(0),
+		Color(FLinearColor::White)
+	{
+	}
+
+	FAdditionalDepotsColorAmount(int32 amount, FLinearColor color) :
+		Amount(amount),
+		Color(color)
+	{
+	}
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	int32 Amount;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	FLinearColor Color;
 };
 
 USTRUCT(BlueprintType)
@@ -148,6 +178,15 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	FAdditionalDepotsItemDetails GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass) const;
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetTotalAmountStoredAmountForItem(TSubclassOf<UFGItemDescriptor> itemClass);
+
+	UFUNCTION(BlueprintCallable)
+	TArray<FAdditionalDepotsColorAmount> GetAmountStoredForItemPerList(TSubclassOf<UFGItemDescriptor> itemClass);
+
+
+public: //internal
 
 	void AddItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount);
 

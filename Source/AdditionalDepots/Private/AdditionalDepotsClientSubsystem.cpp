@@ -131,6 +131,60 @@ FAdditionalDepotsItemDetails AAdditionalDepotsClientSubsystem::GetItemDetails(FN
 	return FAdditionalDepotsItemDetails(itemClass, amount, listDetails.MaxAmount, listDetails.MaxType, listDetails.Color);
 }
 
+int32 AAdditionalDepotsClientSubsystem::GetTotalAmountStoredAmountForItem(TSubclassOf<UFGItemDescriptor> itemClass)
+{
+	TArray<FName> depots = GetListIdentifiers();
+	int64 totalAmount = 0;
+
+	totalAmount += centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+
+	for (const TPair<FName, FAdditionalDepotsListDetailsData>& depot : depotLists)
+	{
+		if (!depot.Value.CanBeUsedWhenBuilding)
+			continue;
+
+		if (depotContents.Contains(depot.Key) && depotContents[depot.Key].ItemAmounts.Contains(itemClass))
+		{
+			totalAmount += static_cast<int64>(depotContents[depot.Key].ItemAmounts[itemClass]);
+		}
+	}
+
+	return FMath::Clamp<int64>(totalAmount, 0, static_cast<int64>(MAX_int32));
+}
+
+TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetAmountStoredForItemPerList(TSubclassOf<UFGItemDescriptor> itemClass)
+{
+	TArray<FAdditionalDepotsColorAmount> amounts;
+	int64 totalAmount = 0;
+
+	int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+	totalAmount += centralStorageAmount;
+
+	if (centralStorageAmount > 0)
+	{
+		FName key = GetDimensionalDepotIdentifier();
+	 	amounts.Add(FAdditionalDepotsColorAmount(centralStorageAmount, depotLists[key].Color));
+	}
+
+	for (const TPair<FName, FAdditionalDepotsListDetailsData>& depot : depotLists)
+	{
+		if (!depot.Value.CanBeUsedWhenBuilding)
+			continue;
+
+		if (depotContents.Contains(depot.Key) && depotContents[depot.Key].ItemAmounts.Contains(itemClass))
+		{
+			int32 depotAmount = depotContents[depot.Key].ItemAmounts[itemClass];
+			totalAmount += depotAmount;
+			amounts.Add(FAdditionalDepotsColorAmount(depotAmount, depotLists[depot.Key].Color));
+		}
+	}
+
+	for (FAdditionalDepotsColorAmount& amount : amounts)
+		amount.Color.A = totalAmount > 0 ? static_cast<float>(amount.Amount) / static_cast<float>(totalAmount) : 0.f;
+
+	return amounts;
+}
+
 void AAdditionalDepotsClientSubsystem::AddItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)
 {
 	if (!listIdentifier.IsValid())
