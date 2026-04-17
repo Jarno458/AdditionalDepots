@@ -5,6 +5,7 @@
 #include "AdditionalDepotsUtils.h"
 #include "FGCentralStorageSubsystem.h"
 #include "ItemAmount.h"
+#include "FGPlayerState.h"
 #include "Subsystem/ModSubsystem.h"
 
 #include "AdditionalDepotsClientSubsystem.generated.h"
@@ -183,7 +184,7 @@ public:
 	int32 GetTotalAmountStoredAmountForItem(TSubclassOf<UFGItemDescriptor> itemClass);
 
 	UFUNCTION(BlueprintCallable)
-	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(int currentAmountInInventory, TSubclassOf<UFGItemDescriptor> itemClass);
+	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(AFGPlayerState* state, int currentAmountInInventory, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount);
 
 
 public: //internal

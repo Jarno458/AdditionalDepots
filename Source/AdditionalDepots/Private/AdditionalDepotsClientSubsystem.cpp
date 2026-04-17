@@ -3,6 +3,7 @@
 #include "AdditionalDepotsDataTypes.h"
 #include "AdditionalDepotsUtils.h"
 #include "FGCentralStorageSubsystem.h"
+#include "FGPlayerState.h"
 #include "Subsystem/SubsystemActorManager.h"
 #include "Logging/StructuredLog.h"
 
@@ -152,12 +153,14 @@ int32 AAdditionalDepotsClientSubsystem::GetTotalAmountStoredAmountForItem(TSubcl
 	return FMath::Clamp<int64>(totalAmount, 0, static_cast<int64>(MAX_int32));
 }
 
-TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages(int currentAmountInInventory, TSubclassOf<UFGItemDescriptor> itemClass)
+TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages(AFGPlayerState* state, int currentAmountInInventory, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount)
 {
 	const FLinearColor inventoryColor = FLinearColor(0.783538f, 0.291771f, 0.057805f);
 
 	TArray<FAdditionalDepotsColorAmount> amounts;
 	int64 totalAmount = 0;
+
+	 // TODO should only add the colors of depots that will be used based on priority order
 
 	totalAmount += currentAmountInInventory;
 

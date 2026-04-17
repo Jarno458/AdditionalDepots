@@ -64,3 +64,16 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Savegame")
 	bool PersistInSaveGame = true;
 };
+
+USTRUCT(BlueprintType)
+struct ADDITIONALDEPOTS_API FAdditionalDepotListPriority
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(BlueprintReadOnly, SaveGame)
+	FName Identifier = NAME_None;
+
+	UPROPERTY(BlueprintReadOnly, SaveGame)
+	bool CanBeUsedWhenBuilding = true;
+};

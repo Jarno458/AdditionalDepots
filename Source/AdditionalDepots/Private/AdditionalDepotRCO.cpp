@@ -1,6 +1,8 @@
 #include "AdditionalDepotRCO.h"
 
+#include "AdditionalDepotsPerPlayerDataComponent.h"
 #include "AdditionalDepotsServerSubsystem.h"
+#include "GameFramework/PlayerState.h"
 #include "Logging/StructuredLog.h"
 #include "Net/UnrealNetwork.h"
 
@@ -9,6 +11,16 @@ DEFINE_LOG_CATEGORY(LogAdditionalDepotRCO);
 void UAdditionalDepotRCO::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UAdditionalDepotRCO, RcoDummy);
+}
+
+void UAdditionalDepotRCO::ServerSetDepotPriority_Implementation(APlayerState* playerState, const TArray<FAdditionalDepotListPriority>& listPriorities)
+{
+	UE_LOGFMT(LogAdditionalDepotRCO, Display, "RCO Set new list priorities for player {0}", listPriorities.Num());
+
+	 UAdditionalDepotsPerPlayerDataComponent* component = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+
+	 component->SetListPriorities(listPriorities);
+
 }
 
 void UAdditionalDepotRCO::ServerRemoveItem_Implementation(FName listIdentifier, FItemAmount itemAmount) {

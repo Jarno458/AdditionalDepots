@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AdditionalDepotsDataTypes.h"
 #include "FGRemoteCallObject.h"
 #include "ItemAmount.h"
 
@@ -25,4 +26,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Reliable, Server)
 	void ServerAddItem(FName listIdentifier, FItemAmount itemAmount);
+
+	UFUNCTION(BlueprintCallable, Reliable, Server)
+	void ServerSetDepotPriority(APlayerState* playerState, const TArray<FAdditionalDepotListPriority>& listPriorities);
 };
