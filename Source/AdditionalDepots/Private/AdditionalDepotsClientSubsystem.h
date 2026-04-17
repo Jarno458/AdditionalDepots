@@ -183,7 +183,7 @@ public:
 	int32 GetTotalAmountStoredAmountForItem(TSubclassOf<UFGItemDescriptor> itemClass);
 
 	UFUNCTION(BlueprintCallable)
-	TArray<FAdditionalDepotsColorAmount> GetAmountStoredForItemPerList(TSubclassOf<UFGItemDescriptor> itemClass);
+	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(int currentAmountInInventory, TSubclassOf<UFGItemDescriptor> itemClass);
 
 
 public: //internal

@@ -152,10 +152,19 @@ int32 AAdditionalDepotsClientSubsystem::GetTotalAmountStoredAmountForItem(TSubcl
 	return FMath::Clamp<int64>(totalAmount, 0, static_cast<int64>(MAX_int32));
 }
 
-TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetAmountStoredForItemPerList(TSubclassOf<UFGItemDescriptor> itemClass)
+TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages(int currentAmountInInventory, TSubclassOf<UFGItemDescriptor> itemClass)
 {
+	const FLinearColor inventoryColor = FLinearColor(0.783538f, 0.291771f, 0.057805f);
+
 	TArray<FAdditionalDepotsColorAmount> amounts;
 	int64 totalAmount = 0;
+
+	totalAmount += currentAmountInInventory;
+
+	if (currentAmountInInventory > 0)
+	{
+		amounts.Add(FAdditionalDepotsColorAmount(currentAmountInInventory, inventoryColor));
+	}
 
 	int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
 	totalAmount += centralStorageAmount;
@@ -163,7 +172,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetAmount
 	if (centralStorageAmount > 0)
 	{
 		FName key = GetDimensionalDepotIdentifier();
-	 	amounts.Add(FAdditionalDepotsColorAmount(centralStorageAmount, depotLists[key].Color));
+		amounts.Add(FAdditionalDepotsColorAmount(centralStorageAmount, depotLists[key].Color));
 	}
 
 	for (const TPair<FName, FAdditionalDepotsListDetailsData>& depot : depotLists)
@@ -179,8 +188,12 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetAmount
 		}
 	}
 
+	float runningTotal = 0.0f;
 	for (FAdditionalDepotsColorAmount& amount : amounts)
-		amount.Color.A = totalAmount > 0 ? static_cast<float>(amount.Amount) / static_cast<float>(totalAmount) : 0.f;
+	{
+		runningTotal += totalAmount > 0 ? static_cast<float>(amount.Amount) / static_cast<float>(totalAmount) : 0.0f;
+		amount.Color.A = runningTotal;
+	}	 
 
 	return amounts;
 }
