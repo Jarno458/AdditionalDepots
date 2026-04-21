@@ -41,6 +41,27 @@ public:
 	FMappedItemAmount Contents;
 };
 
+USTRUCT()
+struct ADDITIONALDEPOTS_API FAAdditionalDepotsSaveableDepotConfiguration
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(SaveGame)
+	FName ListIdentifier;
+
+	UPROPERTY(SaveGame)
+	int32 MaxAmount = 0;
+
+	UPROPERTY(SaveGame)
+	EFAAdditionalDepotsMaxType MaxType = EFAAdditionalDepotsMaxType::None;
+
+	UPROPERTY(SaveGame)
+	bool CanDragItemsToInventory = true;
+
+	UPROPERTY(SaveGame)
+	bool CanBeUsedWhenBuilding = true;
+};
 
 UCLASS()
 class ADDITIONALDEPOTS_API AAdditionalDepotsServerSubsystem : public AModSubsystem, public IFGSaveInterface
@@ -77,7 +98,11 @@ private:
 
 	bool initialized;
 
+	UPROPERTY(SaveGame)
 	TArray<FAAdditionalDepotsSaveableDepotContents> saveableDepotContents;
+
+	UPROPERTY(SaveGame)
+	TArray<FAAdditionalDepotsSaveableDepotConfiguration> saveableDepotConfigs;
 
 public:
 	FORCEINLINE bool IsInitialized() const { return initialized; }

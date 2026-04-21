@@ -2,7 +2,6 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
-#include "AdditionalDepotsUtils.h"
 #include "FGCentralStorageSubsystem.h"
 #include "ItemAmount.h"
 #include "FGPlayerState.h"
@@ -149,19 +148,13 @@ private:
 	UPROPERTY()
 	AFGCentralStorageSubsystem* centralStorageSubsystem;
 
-	UPROPERTY()
+	UPROPERTY() //UPROPERTY() to not loose reference to UTexture2D* Icon;
 	TMap<FName, FAdditionalDepotsListDetailsData> depotLists;
 	TMap<FName, FMappedItemAmount> depotContents;
 
 	FName activeList;
 
 public:
-	UFUNCTION(BlueprintPure, DisplayName = "Get Depot Identifier for Dimensional Storage")
-	static FORCEINLINE FName GetDimensionalDepotIdentifier()
-	{
-		return UAdditionalDepotsUtils::GetDimensionalDepotIdentifier();
-	}
-
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Get Active Depot List", ToolTip = "Get Active Depot List (DimensionalDepot for the Dimensional Depot)"))
 	FORCEINLINE FName GetActiveList() const { return activeList; }
 
@@ -184,7 +177,7 @@ public:
 	int32 GetTotalAmountStoredAmountForItem(TSubclassOf<UFGItemDescriptor> itemClass);
 
 	UFUNCTION(BlueprintCallable)
-	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(AFGPlayerState* state, int currentAmountInInventory, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount);
+	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(APlayerState* state, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount);
 
 
 public: //internal

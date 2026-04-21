@@ -31,10 +31,14 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	virtual void BeginPlay() override;
-	void SetListPriorities(TArray<FAdditionalDepotListPriority> Array);
 
 private:
 	UPROPERTY(Replicated, SaveGame)
-	TArray<FAdditionalDepotListPriority> DepotListsIdentifiers;
+	TArray<FAdditionalDepotListPriority> DepotListPriorities;
+
+public:
+	void SetListPriorities(TArray<FAdditionalDepotListPriority> Array);
+
+	TArray<FAdditionalDepotListPriority>& GetListPriorities();
 };
 

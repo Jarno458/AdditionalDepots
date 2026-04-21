@@ -20,7 +20,6 @@ void UAdditionalDepotRCO::ServerSetDepotPriority_Implementation(APlayerState* pl
 	 UAdditionalDepotsPerPlayerDataComponent* component = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
 
 	 component->SetListPriorities(listPriorities);
-
 }
 
 void UAdditionalDepotRCO::ServerRemoveItem_Implementation(FName listIdentifier, FItemAmount itemAmount) {

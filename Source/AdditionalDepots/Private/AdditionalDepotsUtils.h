@@ -14,11 +14,6 @@ class UAdditionalDepotsUtils : public UObject
 	GENERATED_BODY()
 
 public:
-	static FORCEINLINE FName GetDimensionalDepotIdentifier()
-	{
-		return "DimensionalDepot";
-	}
-
 	static TArray<TSubclassOf<UAdditionalDepotDefinition>> LoadAdditionalDepotLists();
 
 	template<typename T>

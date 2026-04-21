@@ -1,6 +1,7 @@
 #include "AdditionalDepotsServerSubsystem.h"
 
 #include "AdditionalDepotsDataTypes.h"
+#include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsUtils.h"
 #include "Subsystem/SubsystemActorManager.h"
 #include "Logging/StructuredLog.h"
@@ -60,7 +61,7 @@ void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, TAr
 		return;
 	}
 
-	if (listIdentifier == UAdditionalDepotsUtils::GetDimensionalDepotIdentifier())
+	if (listIdentifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 	{
 		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::SetDepotContent({0}) Cannot set contents of dimensional storage, use the AFGCentralStorageSubsystem instead");
 		return;
@@ -161,7 +162,7 @@ TArray<FItemAmount> AAdditionalDepotsServerSubsystem::GetItems(FName listIdentif
 	if (!listIdentifier.IsValid() || !depotContents.Contains(listIdentifier))
 		return items;
 
-	if (listIdentifier == UAdditionalDepotsUtils::GetDimensionalDepotIdentifier())
+	if (listIdentifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 	{
 		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::GetItems({0}) Cannot get contents of dimensional storage, use the AFGCentralStorageSubsystem instead", listIdentifier.ToString());
 		return items;
@@ -342,33 +343,52 @@ void AAdditionalDepotsServerSubsystem::PreSaveGame_Implementation(int32 saveVers
 	{
 		if (persistInSave.Contains(DepotContent.Key) && persistInSave[DepotContent.Key])
 		{
-			FAAdditionalDepotsSaveableDepotContents saveable;
-			saveable.ListIdentifier = DepotContent.Key;
-			saveable.Contents = DepotContent.Value;
+			FAAdditionalDepotsSaveableDepotContents Savable;
+			Savable.ListIdentifier = DepotContent.Key;
+			Savable.Contents = DepotContent.Value;
 
-			saveableDepotContents.Add(saveable);
+			saveableDepotContents.Add(Savable);
 		}
 	}
-}
 
-void AAdditionalDepotsServerSubsystem::PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
-	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PostSaveGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
+	for (TPair<FName, FAdditionalDepotConfiguration> DepotConfig : depotConfigurations)
+	{
+		FAAdditionalDepotsSaveableDepotConfiguration Savable;
+		Savable.ListIdentifier = DepotConfig.Key;
+		Savable.MaxAmount = DepotConfig.Value.MaxAmount;
+		Savable.MaxType = DepotConfig.Value.MaxType;
+		Savable.CanBeUsedWhenBuilding = DepotConfig.Value.CanBeUsedWhenBuilding;
+		Savable.CanDragItemsToInventory = DepotConfig.Value.CanDragItemsToInventory;
 
-	for (const FAAdditionalDepotsSaveableDepotContents& saveable : saveableDepotContents)
-		depotContents.FindOrAdd(saveable.ListIdentifier) = saveable.Contents;
-
-	saveableDepotContents.Empty();
+		saveableDepotConfigs.Add(Savable);
+	}
 }
 
 void AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
 
-	/*for (const FName& listIdentifier : depotConfigurations)
-	{
-		//TODO check for config changes and the need to replicate
-	}*/
+	 if (!saveableDepotContents.IsEmpty())
+	 {
+		 for (const FAAdditionalDepotsSaveableDepotContents& Savable : saveableDepotContents)
+			 depotContents.FindOrAdd(Savable.ListIdentifier) = Savable.Contents;
+
+		 saveableDepotContents.Empty();
+	 }
+
+	 if (!saveableDepotConfigs.IsEmpty())
+	 {
+		 for (const FAAdditionalDepotsSaveableDepotConfiguration& Savable : saveableDepotConfigs)
+			 depotConfigurations.FindOrAdd(Savable.ListIdentifier) =
+			 FAdditionalDepotConfiguration(Savable.MaxAmount, Savable.MaxType, Savable.CanBeUsedWhenBuilding, Savable.CanDragItemsToInventory);
+
+		 saveableDepotConfigs.Empty();
+	 }
+}
+
+void AAdditionalDepotsServerSubsystem::PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
+{
+	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PostSaveGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
 }
 
 #pragma optimize("", on)

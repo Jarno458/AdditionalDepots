@@ -2,6 +2,7 @@
 
 #include "AdditionalDepotsClientSubsystem.h"
 #include "AdditionalDepotsServerSubsystem.h"
+#include "AdditionalDepotsUtils.h"
 #include "EngineUtils.h"
 #include "ObjectAndNameAsStringProxyArchive.h"
 #include "StructuredLog.h"

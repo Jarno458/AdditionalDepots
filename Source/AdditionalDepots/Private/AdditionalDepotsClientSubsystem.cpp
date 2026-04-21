@@ -1,8 +1,11 @@
 #include "AdditionalDepotsClientSubsystem.h"
 
 #include "AdditionalDepotsDataTypes.h"
+#include "AdditionalDepotsPerPlayerDataComponent.h"
+#include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsUtils.h"
 #include "FGCentralStorageSubsystem.h"
+#include "FGPlayerController.h"
 #include "FGPlayerState.h"
 #include "Subsystem/SubsystemActorManager.h"
 #include "Logging/StructuredLog.h"
@@ -16,7 +19,7 @@ AAdditionalDepotsClientSubsystem::AAdditionalDepotsClientSubsystem() : Super() {
 
 	ReplicationPolicy = ESubsystemReplicationPolicy::SpawnOnClient;
 
-	activeList = GetDimensionalDepotIdentifier();
+	activeList = UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier();
 }
 
 AAdditionalDepotsClientSubsystem* AAdditionalDepotsClientSubsystem::Get(UWorld* world) {
@@ -80,7 +83,7 @@ TArray<FItemAmount> AAdditionalDepotsClientSubsystem::GetItems(FName listIdentif
 	if (!listIdentifier.IsValid())
 		return items;
 
-	if (listIdentifier == GetDimensionalDepotIdentifier())
+	if (listIdentifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 	{
 		centralStorageSubsystem->GetAllItemsFromCentralStorage(items);
 		return items;
@@ -153,50 +156,92 @@ int32 AAdditionalDepotsClientSubsystem::GetTotalAmountStoredAmountForItem(TSubcl
 	return FMath::Clamp<int64>(totalAmount, 0, static_cast<int64>(MAX_int32));
 }
 
-TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages(AFGPlayerState* state, int currentAmountInInventory, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount)
+TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages(APlayerState* state, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount)
 {
-	const FLinearColor inventoryColor = FLinearColor(0.783538f, 0.291771f, 0.057805f);
+	static constexpr FLinearColor inventoryColor = FLinearColor(0.783538f, 0.291771f, 0.057805f);
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!playerData)
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
+		return TArray<FAdditionalDepotsColorAmount>();
+	}
 
 	TArray<FAdditionalDepotsColorAmount> amounts;
 	int64 totalAmount = 0;
+	int remainingCost = cost;
 
-	 // TODO should only add the colors of depots that will be used based on priority order
-
-	totalAmount += currentAmountInInventory;
-
-	if (currentAmountInInventory > 0)
+	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
 	{
-		amounts.Add(FAdditionalDepotsColorAmount(currentAmountInInventory, inventoryColor));
-	}
-
-	int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
-	totalAmount += centralStorageAmount;
-
-	if (centralStorageAmount > 0)
-	{
-		FName key = GetDimensionalDepotIdentifier();
-		amounts.Add(FAdditionalDepotsColorAmount(centralStorageAmount, depotLists[key].Color));
-	}
-
-	for (const TPair<FName, FAdditionalDepotsListDetailsData>& depot : depotLists)
-	{
-		if (!depot.Value.CanBeUsedWhenBuilding)
+		if (!depot.CanBeUsedWhenBuilding)
 			continue;
 
-		if (depotContents.Contains(depot.Key) && depotContents[depot.Key].ItemAmounts.Contains(itemClass))
+		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 		{
-			int32 depotAmount = depotContents[depot.Key].ItemAmounts[itemClass];
-			totalAmount += depotAmount;
-			amounts.Add(FAdditionalDepotsColorAmount(depotAmount, depotLists[depot.Key].Color));
+			int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+			totalAmount += centralStorageAmount;
+
+			if (centralStorageAmount > 0)
+			{
+				remainingCost -= centralStorageAmount;
+				if (remainingCost < 0)
+				{
+					centralStorageAmount += remainingCost;
+					remainingCost = 0;
+				}
+
+				amounts.Add(FAdditionalDepotsColorAmount(centralStorageAmount, depotLists[depot.Identifier].Color));
+			}
+		}
+		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
+		{
+			AFGPlayerState* playerState = Cast<AFGPlayerState>(state);
+			AFGPlayerController* playerController = playerState->GetOwningController();
+			AFGCharacterPlayer* playerCharacter = Cast<AFGCharacterPlayer>(playerController->GetControlledCharacter());
+
+			if (!playerCharacter)
+			{
+				UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages() - Controlled character not found!");
+				return TArray<FAdditionalDepotsColorAmount>();
+			}
+
+			int32 amountInInventory = playerCharacter->GetInventory()->GetNumItems(itemClass);
+
+			totalAmount += amountInInventory;
+
+			if (amountInInventory > 0)
+			{
+				remainingCost -= amountInInventory;
+				if (remainingCost < 0)
+				{
+					amountInInventory += remainingCost;
+					remainingCost = 0;
+				}
+
+				amounts.Add(FAdditionalDepotsColorAmount(amountInInventory, inventoryColor));
+			}
+		}
+		else
+		{
+			if (depotContents.Contains(depot.Identifier) && depotContents[depot.Identifier].ItemAmounts.Contains(itemClass))
+			{
+				int32 depotAmount = depotContents[depot.Identifier].ItemAmounts[itemClass];
+
+				totalAmount += depotAmount;
+
+				remainingCost -= depotAmount;
+				if (remainingCost < 0)
+				{
+					depotAmount += remainingCost;
+					remainingCost = 0;
+				}
+
+				amounts.Add(FAdditionalDepotsColorAmount(depotAmount, depotLists[depot.Identifier].Color));
+			}
 		}
 	}
 
-	float runningTotal = 0.0f;
-	for (FAdditionalDepotsColorAmount& amount : amounts)
-	{
-		runningTotal += totalAmount > 0 ? static_cast<float>(amount.Amount) / static_cast<float>(totalAmount) : 0.0f;
-		amount.Color.A = runningTotal;
-	}	 
+	OutTotalAmount = static_cast<int32>(FMath::Clamp<int64>(totalAmount, 0, static_cast<int64>(MAX_int32)));
 
 	return amounts;
 }
@@ -249,6 +294,8 @@ void AAdditionalDepotsClientSubsystem::AddList(TSubclassOf<UAdditionalDepotDefin
 	}
 
 	depotLists.Add(cdo->Identifier, FAdditionalDepotsListDetailsData(details));
+
+	auto x = 20;
 }
 
 #pragma optimize("", on)
