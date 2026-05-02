@@ -46,25 +46,25 @@ public:
 	}
 
 public:
-	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UPROPERTY(BlueprintReadWrite, Category = "AdditionalDepots")
 	FText Name;
 
-	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UPROPERTY(BlueprintReadWrite, Category = "AdditionalDepots")
 	int32 MaxAmount = 0;
 
-	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UPROPERTY(BlueprintReadWrite, Category = "AdditionalDepots")
 	EFAAdditionalDepotsMaxType MaxType = EFAAdditionalDepotsMaxType::None;
 
-	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UPROPERTY(BlueprintReadWrite, Category = "AdditionalDepots")
 	FLinearColor Color = FLinearColor::White;
 
-	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UPROPERTY(BlueprintReadWrite, Category = "AdditionalDepots")
 	bool CanDragItemsToInventory = false;
 
-	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UPROPERTY(BlueprintReadWrite, Category = "AdditionalDepots")
 	UTexture2D* Icon = nullptr;
 
-	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	UPROPERTY(BlueprintReadWrite, Category = "AdditionalDepots")
 	bool CanBeUsedWhenBuilding = false;
 };
 
@@ -178,7 +178,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(APlayerState* state, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount);
-
 
 public: //internal
 

@@ -1,5 +1,6 @@
 #include "AdditionalDepotsPerPlayerDataComponent.h"
 
+#include "AdditionalDepotRCO.h"
 #include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsServerSubsystem.h"
 #include "FGPlayerController.h"
@@ -14,6 +15,17 @@ UAdditionalDepotsPerPlayerDataComponent::UAdditionalDepotsPerPlayerDataComponent
 	PrimaryComponentTick.bCanEverTick = false;
 
 	SetIsReplicatedByDefault(true);
+}
+
+UAdditionalDepotsPerPlayerDataComponent* UAdditionalDepotsPerPlayerDataComponent::Get(AFGPlayerState* playerState)
+{
+	if (!IsValid(playerState))
+	{
+		UE_LOG(LogAdditionalDepotsPerPlayerDataComponent, Warning, TEXT("UAdditionalDepotsPerPlayerDataComponent::Get() - Invalid player state!"));
+		return nullptr;
+	}
+
+	return playerState->FindComponentByClass<UAdditionalDepotsPerPlayerDataComponent>();
 }
 
 void UAdditionalDepotsPerPlayerDataComponent::GetLifetimeReplicatedProps(
@@ -51,8 +63,8 @@ void UAdditionalDepotsPerPlayerDataComponent::BeginPlay() {
 			for (const FName& listIdentifier : serverSubsystem->GetListIdentifiers())
 			{
 				FAdditionalDepotConfiguration config = serverSubsystem->GetConfiguration(listIdentifier);
-					 
-				DepotListPriorities.Add(FAdditionalDepotListPriority{listIdentifier, config.CanBeUsedWhenBuilding});
+
+				DepotListPriorities.Add(FAdditionalDepotListPriority{ listIdentifier, config.CanBeUsedWhenBuilding });
 			}
 		}
 	}
@@ -60,8 +72,28 @@ void UAdditionalDepotsPerPlayerDataComponent::BeginPlay() {
 
 void UAdditionalDepotsPerPlayerDataComponent::SetListPriorities(TArray<FAdditionalDepotListPriority> Array)
 {
-	//TODO might need locking so we don't update the array when we read it
 	DepotListPriorities = Array;
+
+	AFGPlayerState* playerState = Cast<AFGPlayerState>(GetOwner());
+
+	if (!IsValid(playerState))
+		return;
+
+	AFGPlayerController* controller = playerState->GetOwningController();
+	if (!IsValid(controller))
+		return;
+
+	if (!controller->HasAuthority())
+	{
+		UAdditionalDepotRCO* rco = Cast<UAdditionalDepotRCO>(controller->GetRemoteCallObjectOfClass(UAdditionalDepotRCO::StaticClass()));
+		if (!IsValid(rco))
+		{
+			UE_LOG(LogAdditionalDepotsPerPlayerDataComponent, Error, TEXT("Failed to get RCO"));
+			return;
+		}
+
+		rco->ServerSetDepotPriority(playerState, Array);
+	}
 }
 
 TArray<FAdditionalDepotListPriority>& UAdditionalDepotsPerPlayerDataComponent::GetListPriorities()

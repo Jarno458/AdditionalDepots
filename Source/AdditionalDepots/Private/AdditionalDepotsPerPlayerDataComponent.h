@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
+#include "FGPlayerState.h"
 #include "FGPlayerStateComponentInterface.h"
 #include "FGSaveInterface.h"
 #include "AdditionalDepotsPerPlayerDataComponent.generated.h"
@@ -28,6 +29,9 @@ class UAdditionalDepotsPerPlayerDataComponent : public UActorComponent, public I
 public:
 	UAdditionalDepotsPerPlayerDataComponent();
 
+	UFUNCTION(BlueprintPure, DisplayName = "Get Additional Depots Per Player Data")
+	static UAdditionalDepotsPerPlayerDataComponent* Get(AFGPlayerState* playerState);
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	virtual void BeginPlay() override;
@@ -37,8 +41,10 @@ private:
 	TArray<FAdditionalDepotListPriority> DepotListPriorities;
 
 public:
+	UFUNCTION(BlueprintCallable, Category = "AdditionalDepots")
 	void SetListPriorities(TArray<FAdditionalDepotListPriority> Array);
 
+	UFUNCTION(BlueprintCallable, Category = "AdditionalDepots")
 	TArray<FAdditionalDepotListPriority>& GetListPriorities();
 };
 
