@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ItemAmount.h"
 #include "Engine/DataAsset.h"
 
 #include "AdditionalDepotsDataTypes.generated.h"
@@ -61,6 +62,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configuration")
 	bool CanBeUsedWhenBuilding = true;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Configuration")
+	bool IsPlayerSpecific = false;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Savegame")
 	bool PersistInSaveGame = true;
 };
@@ -71,9 +75,22 @@ struct ADDITIONALDEPOTS_API FAdditionalDepotListPriority
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(BlueprintReadOnly, SaveGame)
+	UPROPERTY(BlueprintReadWrite, SaveGame)
 	FName Identifier = NAME_None;
 
-	UPROPERTY(BlueprintReadOnly, SaveGame)
+	UPROPERTY(BlueprintReadWrite, SaveGame)
 	bool CanBeUsedWhenBuilding = true;
+};
+
+USTRUCT()
+struct FAAdditionalDepotsSaveableDepotContents
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(SaveGame)
+	FName ListIdentifier;
+
+	UPROPERTY(SaveGame)
+	FMappedItemAmount Contents;
 };

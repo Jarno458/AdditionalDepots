@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
 #include "FGItemDescriptor.h"
+#include "FGPlayerState.h"
 #include "ItemAmount.h"
 
 #include "AdditionalDepotsReplicatorComponent.generated.h"
@@ -104,7 +105,7 @@ private:
 	void ReceiveConfigReplicationData(const FAdditionalDepotsConfigReplicationMessage& ConfigReplicationMessage) const;
 
 	UFUNCTION() //for event binding
-	void SendUpdatedItemReplicationData(FName ListIdentifier, TArray<FItemAmount> items);
+	void SendUpdatedItemReplicationData(FName ListIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState);
 	UFUNCTION() //for event binding
 	void SendUpdatedConfiguration(FName ListIdentifier, FAdditionalDepotConfiguration config);
 };

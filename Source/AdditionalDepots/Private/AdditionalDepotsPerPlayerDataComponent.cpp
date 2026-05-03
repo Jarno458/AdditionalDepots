@@ -101,6 +101,54 @@ TArray<FAdditionalDepotListPriority>& UAdditionalDepotsPerPlayerDataComponent::G
 	return DepotListPriorities;
 }
 
+void UAdditionalDepotsPerPlayerDataComponent::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
+{
+	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "UAdditionalDepotsPerPlayerDataComponent::PreSaveGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
+
+	AFGPlayerState* playerState = Cast<AFGPlayerState>(GetOwner());
+	if (!IsValid(playerState))
+		return;
+
+	AFGPlayerController* controller = playerState->GetOwningController();
+	if (!IsValid(controller) || !controller->HasAuthority())
+		return;
+
+	AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+
+	for (TPair<FName, FMappedItemAmount> DepotContent : depotContents)
+	{
+		if (serverSubsystem->IsPersistentInSave(DepotContent.Key))
+		{
+			FAAdditionalDepotsSaveableDepotContents Savable;
+			Savable.ListIdentifier = DepotContent.Key;
+			Savable.Contents = DepotContent.Value;
+
+			saveableDepotContents.Add(Savable);
+		}
+	}
+}
+
+void UAdditionalDepotsPerPlayerDataComponent::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
+{
+	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "UAdditionalDepotsPerPlayerDataComponent::PostLoadGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
+
+	AFGPlayerState* playerState = Cast<AFGPlayerState>(GetOwner());
+	if (!IsValid(playerState))
+		return;
+
+	AFGPlayerController* controller = playerState->GetOwningController();
+	if (!IsValid(controller) || !controller->HasAuthority())
+		return;
+
+	if (!saveableDepotContents.IsEmpty())
+	{
+		for (const FAAdditionalDepotsSaveableDepotContents& Savable : saveableDepotContents)
+			depotContents.FindOrAdd(Savable.ListIdentifier) = Savable.Contents;
+
+		saveableDepotContents.Empty();
+	}
+}
+
 void UAdditionalDepotsPerPlayerDataComponent::CopyComponentProperties_Implementation(UActorComponent* intoComponent)
 {
 	IFGPlayerStateComponentInterface::CopyComponentProperties_Implementation(intoComponent);
@@ -110,4 +158,5 @@ void UAdditionalDepotsPerPlayerDataComponent::CopyComponentProperties_Implementa
 		return;
 
 	target->DepotListPriorities = DepotListPriorities;
+	target->saveableDepotContents = saveableDepotContents;
 }
