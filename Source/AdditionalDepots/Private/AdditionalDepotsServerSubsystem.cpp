@@ -9,8 +9,6 @@
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsServerSubsystem);
 
-#pragma optimize("", off)
-
 AAdditionalDepotsServerSubsystem::AAdditionalDepotsServerSubsystem() : Super() {
 	PrimaryActorTick.bCanEverTick = false;
 
@@ -73,8 +71,13 @@ void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, TAr
 		FScopeLock lock(&depotLock);
 
 		TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(listIdentifier, playerState);
+		if (!depotContentsMap)
+			return;
 
 		FMappedItemAmount& depotContent = depotContentsMap->FindOrAdd(listIdentifier);
+
+		TArray<TSubclassOf<UFGItemDescriptor>> removedItems;
+		depotContent.ItemAmounts.GenerateKeyArray(removedItems);
 
 		depotContent.ItemAmounts.Empty();
 
@@ -82,6 +85,12 @@ void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, TAr
 			depotContent.ItemAmounts.Add(item.ItemClass, item.Amount);
 
 		depotContent.ItemAmounts.GenerateKeyArray(updatedItems);
+
+		for (const TSubclassOf<UFGItemDescriptor>& removedItem : removedItems)
+		{
+			if (!updatedItems.Contains(removedItem))
+				updatedItems.Add(removedItem);
+		}
 	}
 
 	BroadCastNewItemAmounts(listIdentifier, updatedItems, playerState);
@@ -161,10 +170,12 @@ TArray<FItemAmount> AAdditionalDepotsServerSubsystem::GetItems(FName listIdentif
 {
 	TArray<FItemAmount> items;
 
-	if (!listIdentifier.IsValid() || !depotContents.Contains(listIdentifier))
+	if (!listIdentifier.IsValid())
 		return items;
 
 	TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(listIdentifier, playerState);
+	if (!depotContentsMap)
+		return items;
 
 	if (!depotContentsMap || !depotContentsMap->Contains(listIdentifier))
 		return items;
@@ -259,13 +270,18 @@ void AAdditionalDepotsServerSubsystem::AddList(TSubclassOf<UAdditionalDepotDefin
 	persistInSave.FindOrAdd(cdo->Identifier, cdo->PersistInSaveGame);
 	depotConfigurations.FindOrAdd(cdo->Identifier, config);
 	uniquePerPlayer.FindOrAdd(cdo->Identifier, cdo->IsPlayerSpecific);
-	//depotContents.FindOrAdd(cdo->Identifier, FMappedItemAmount());
+	depotContents.FindOrAdd(cdo->Identifier);
 }
 
 int32 AAdditionalDepotsServerSubsystem::AddItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState, bool broadcast)
 {
 	if (!listIdentifier.IsValid())
 		return 0;
+
+	if (amount < 0)
+	{
+		return RemoveItemInternal(listIdentifier, itemClass, -amount, playerState, broadcast);
+	}
 
 	int32 Added;
 	{
@@ -277,10 +293,22 @@ int32 AAdditionalDepotsServerSubsystem::AddItemInternal(FName listIdentifier, TS
 
 		depotContentsMap->FindOrAdd(listIdentifier).ItemAmounts.FindOrAdd(itemClass);
 
+		int32 maxForDepot;
+
+		if (!depotConfigurations.Contains(listIdentifier) || depotConfigurations[listIdentifier].MaxType == EFAAdditionalDepotsMaxType::None) {
+			maxForDepot = INT32_MAX;
+		}
+		else {
+			maxForDepot = depotConfigurations[listIdentifier].MaxAmount;
+
+			if (depotConfigurations[listIdentifier].MaxType == EFAAdditionalDepotsMaxType::Stacks)
+				maxForDepot *= UFGItemDescriptor::GetStackSize(itemClass);
+		}
+
 		const int64 Current = (*depotContentsMap)[listIdentifier].ItemAmounts[itemClass];
 		const int64 Delta = amount;
 		const int64 NewValue64 = Current + Delta;
-		const int32 Clamped = static_cast<int32>(FMath::Clamp<int64>(NewValue64, 0, INT32_MAX));
+		const int32 Clamped = static_cast<int32>(FMath::Clamp<int64>(NewValue64, 0, maxForDepot));
 
 		(*depotContentsMap)[listIdentifier].ItemAmounts[itemClass] = Clamped;
 		Added = static_cast<int32>(FMath::Clamp<int64>(static_cast<int64>(Clamped) - Current, 0, INT32_MAX));
@@ -297,10 +325,15 @@ int32 AAdditionalDepotsServerSubsystem::RemoveItemInternal(FName listIdentifier,
 	if (!listIdentifier.IsValid())
 		return 0;
 
+	if (amount < 0)
+	{
+		return AddItemInternal(listIdentifier, itemClass, -amount, playerState, broadcast);
+	}
+
 	int32 Removed;
 	{
 		FScopeLock lock(&depotLock);
-		  
+
 		TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(listIdentifier, playerState);
 		if (!depotContentsMap || !depotContentsMap->Contains(listIdentifier))
 			return 0;
@@ -328,7 +361,7 @@ int32 AAdditionalDepotsServerSubsystem::RemoveItemInternal(FName listIdentifier,
 	return Removed;
 }
 
-TMap<FName, FMappedItemAmount>* AAdditionalDepotsServerSubsystem::GetDepotContent(FName listIdentifier,	AFGPlayerState* playerState)
+TMap<FName, FMappedItemAmount>* AAdditionalDepotsServerSubsystem::GetDepotContent(FName listIdentifier, AFGPlayerState* playerState)
 {
 	if (!listIdentifier.IsValid())
 		return &depotContents;
@@ -338,9 +371,20 @@ TMap<FName, FMappedItemAmount>* AAdditionalDepotsServerSubsystem::GetDepotConten
 	if (!isUniquePerPlayer || !(*isUniquePerPlayer))
 		return &depotContents;
 
-	UAdditionalDepotsPerPlayerDataComponent* perPlayerData = UAdditionalDepotsPerPlayerDataComponent::Get(playerState);
+	if (!playerState)
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::GetDepotContent(listIdentifier: {0}) - Depot is unique per player but player state is not provided", listIdentifier.ToString());
+		return nullptr;
+	}
 
-	return perPlayerData ? &perPlayerData->depotContents : &depotContents;
+	UAdditionalDepotsPerPlayerDataComponent* perPlayerData = UAdditionalDepotsPerPlayerDataComponent::Get(playerState);
+	if (!perPlayerData)
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Fatal, "LogAdditionalDepotsServerSubsystem::GetDepotContent(listIdentifier: {0}) - Depot is unique per player but player player data could not be retrieved", listIdentifier.ToString());
+		return nullptr;
+	}
+
+	return &perPlayerData->depotContents;
 }
 
 void AAdditionalDepotsServerSubsystem::BroadCastNewItemAmounts(FName listIdentifier, TArray<TSubclassOf<UFGItemDescriptor>> itemClasses, AFGPlayerState* playerState)
@@ -376,55 +420,13 @@ void AAdditionalDepotsServerSubsystem::BroadCastNewConfiguration(FName listIdent
 	OnConfigurationUpdated.Broadcast(listIdentifier, depotConfigurations[listIdentifier]);
 }
 
-void AAdditionalDepotsServerSubsystem::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
-	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PreSaveGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
-
-	for (TPair<FName, FMappedItemAmount> DepotContent : depotContents)
-	{
-		if (persistInSave.Contains(DepotContent.Key) && persistInSave[DepotContent.Key])
-		{
-			FAAdditionalDepotsSaveableDepotContents Savable;
-			Savable.ListIdentifier = DepotContent.Key;
-			Savable.Contents = DepotContent.Value;
-
-			saveableDepotContents.Add(Savable);
-		}
-	}
-
-	for (TPair<FName, FAdditionalDepotConfiguration> DepotConfig : depotConfigurations)
-	{
-		FAAdditionalDepotsSaveableDepotConfiguration Savable;
-		Savable.ListIdentifier = DepotConfig.Key;
-		Savable.MaxAmount = DepotConfig.Value.MaxAmount;
-		Savable.MaxType = DepotConfig.Value.MaxType;
-		Savable.CanBeUsedWhenBuilding = DepotConfig.Value.CanBeUsedWhenBuilding;
-		Savable.CanDragItemsToInventory = DepotConfig.Value.CanDragItemsToInventory;
-
-		saveableDepotConfigs.Add(Savable);
-	}
-}
-
 void AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
-
-	 if (!saveableDepotContents.IsEmpty())
-	 {
-		 for (const FAAdditionalDepotsSaveableDepotContents& Savable : saveableDepotContents)
-			 depotContents.FindOrAdd(Savable.ListIdentifier) = Savable.Contents;
-
-		 saveableDepotContents.Empty();
-	 }
-
-	 if (!saveableDepotConfigs.IsEmpty())
-	 {
-		 for (const FAAdditionalDepotsSaveableDepotConfiguration& Savable : saveableDepotConfigs)
-			 depotConfigurations.FindOrAdd(Savable.ListIdentifier) =
-			 FAdditionalDepotConfiguration(Savable.MaxAmount, Savable.MaxType, Savable.CanBeUsedWhenBuilding, Savable.CanDragItemsToInventory);
-
-		 saveableDepotConfigs.Empty();
-	 }
+	
+	for (const TPair<FName, bool>& save : persistInSave)
+	{
+		if (!save.Value)
+			depotContents.Remove(save.Key);
+	}
 }
-
-#pragma optimize("", on)

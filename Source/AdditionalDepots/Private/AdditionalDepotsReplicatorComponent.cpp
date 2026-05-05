@@ -1,16 +1,15 @@
 #include "AdditionalDepotsReplicatorComponent.h"
 
 #include "AdditionalDepotsClientSubsystem.h"
+#include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsServerSubsystem.h"
 #include "AdditionalDepotsUtils.h"
-#include "EngineUtils.h"
+#include "FGPlayerController.h"
 #include "ObjectAndNameAsStringProxyArchive.h"
 #include "StructuredLog.h"
 #include "ReliableMessagingPlayerComponent.h"
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsReplicatorComponent);
-
-#pragma optimize("", off)
 
 FArchive& operator<<(FArchive& Ar, FReplicatedItemData& Info)
 {
@@ -124,12 +123,11 @@ void UAdditionalDepotsReplicatorComponent::TickComponent(float DeltaTime, ELevel
 		return; //waiting for initialization
 	}
 
-	for (TActorIterator<APlayerController> actorIterator(GetWorld()); actorIterator; ++actorIterator) {
-		const APlayerController* PlayerController = *actorIterator;
-		if (!IsValid(PlayerController))
+	for (TPlayerControllerIterator<AFGPlayerController>::ServerAll playerController(GetWorld()); playerController; ++playerController) {
+		if (!IsValid(*playerController))
 			continue;
 
-		SendInitialReplicationData(PlayerController);
+		SendInitialReplicationData(*playerController);
 	}
 
 	SetComponentTickEnabled(false);
@@ -156,6 +154,9 @@ void UAdditionalDepotsReplicatorComponent::SendInitialReplicationData(const APla
 
 	for (FName listIdentifier : serverSubsystem->GetListIdentifiers())
 	{
+		if (listIdentifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
+			continue;
+
 		for (const FItemAmount& Item : serverSubsystem->GetItems(listIdentifier, playerState))
 		{
 			Message.ItemData.Add(FReplicatedItemData(listIdentifier, Item.ItemClass, Item.Amount));
@@ -300,14 +301,13 @@ void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName 
 	else
 	{
 		//TODO could optimize using relevancy, that would be fancy
-		for (TActorIterator<APlayerController> actorIterator(GetWorld()); actorIterator; ++actorIterator) {
-			const APlayerController* PlayerController = *actorIterator;
-			if (!IsValid(PlayerController))
+		for (TPlayerControllerIterator<AFGPlayerController>::ServerAll playerController(GetWorld()); playerController; ++playerController) {
+			if (!IsValid(*playerController))
 				continue;
 
-			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), PlayerController->GetPlayerState<APlayerState>()->GetPlayerName());
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
 
-			SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
+			SendRawMessage(*playerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 		}
 	}
 }
@@ -318,15 +318,12 @@ void UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration(FName ListId
 	Message.ConfigData = TArray<FReplicatedDepotConfigurationData>();
 	Message.ConfigData.Add(FReplicatedDepotConfigurationData(ListIdentifier, config));
 
-	for (TActorIterator<APlayerController> actorIterator(GetWorld()); actorIterator; ++actorIterator) {
-		const APlayerController* PlayerController = *actorIterator;
-		if (!IsValid(PlayerController))
+	for (TPlayerControllerIterator<AFGPlayerController>::ServerAll playerController(GetWorld()); playerController; ++playerController) {
+		if (!IsValid(*playerController))
 			continue;
 
-		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration() Sending updated configuration message with {0} configurations in the lookup array to player {1}", Message.ConfigData.Num(), PlayerController->GetPlayerState<APlayerState>()->GetPlayerName());
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration() Sending updated configuration message with {0} configurations in the lookup array to player {1}", Message.ConfigData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
 
-		SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
+		SendRawMessage(*playerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 	}
 }
-
-#pragma optimize("", on)

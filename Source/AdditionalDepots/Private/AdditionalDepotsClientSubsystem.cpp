@@ -12,8 +12,6 @@
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsClientSubsystem);
 
-#pragma optimize("", off)
-
 AAdditionalDepotsClientSubsystem::AAdditionalDepotsClientSubsystem() : Super() {
 	PrimaryActorTick.bCanEverTick = false;
 
@@ -173,11 +171,14 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 
 	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
 	{
-		if (!depot.CanBeUsedWhenBuilding)
+		if (!depot.CanBeUsedWhenBuilding) // player specific setting
 			continue;
 
 		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 		{
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+				continue;
+
 			int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
 			totalAmount += centralStorageAmount;
 
@@ -223,21 +224,22 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 		}
 		else
 		{
-			if (depotContents.Contains(depot.Identifier) && depotContents[depot.Identifier].ItemAmounts.Contains(itemClass))
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding //server configuration
+				|| !depotContents.Contains(depot.Identifier) || !depotContents[depot.Identifier].ItemAmounts.Contains(itemClass))
+				continue;
+
+			int32 depotAmount = depotContents[depot.Identifier].ItemAmounts[itemClass];
+
+			totalAmount += depotAmount;
+
+			remainingCost -= depotAmount;
+			if (remainingCost < 0)
 			{
-				int32 depotAmount = depotContents[depot.Identifier].ItemAmounts[itemClass];
-
-				totalAmount += depotAmount;
-
-				remainingCost -= depotAmount;
-				if (remainingCost < 0)
-				{
-					depotAmount += remainingCost;
-					remainingCost = 0;
-				}
-
-				amounts.Add(FAdditionalDepotsColorAmount(depotAmount, depotLists[depot.Identifier].Color));
+				depotAmount += remainingCost;
+				remainingCost = 0;
 			}
+
+			amounts.Add(FAdditionalDepotsColorAmount(depotAmount, depotLists[depot.Identifier].Color));
 		}
 	}
 
@@ -275,7 +277,7 @@ void AAdditionalDepotsClientSubsystem::UpdateConfiguration(FName listIdentifier,
 	depotLists[listIdentifier].MaxAmount = config.MaxAmount;
 	depotLists[listIdentifier].MaxType = config.MaxType;
 	depotLists[listIdentifier].CanDragItemsToInventory = config.CanDragItemsToInventory;
-	depotLists[listIdentifier].CanDragItemsToInventory = config.CanBeUsedWhenBuilding;
+	depotLists[listIdentifier].CanBeUsedWhenBuilding = config.CanBeUsedWhenBuilding;
 }
 
 void AAdditionalDepotsClientSubsystem::AddList(TSubclassOf<UAdditionalDepotDefinition> details)
@@ -297,5 +299,3 @@ void AAdditionalDepotsClientSubsystem::AddList(TSubclassOf<UAdditionalDepotDefin
 
 	auto x = 20;
 }
-
-#pragma optimize("", on)

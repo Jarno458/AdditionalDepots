@@ -2,11 +2,33 @@
 
 #include "AdditionalDepotsModule.h"
 
+#include "FGCentralStorageContainer.h"
+#include "FGCharacterPlayer.h"
+#include "Patching/NativeHookManager.h"
+#include "StructuredLog.h"
+
 #define LOCTEXT_NAMESPACE "FAdditionalDepotsModule"
+
+DEFINE_LOG_CATEGORY(LogAdditionalDepotsModule);
 
 void FAdditionalDepotsModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	UE_LOGFMT(LogAdditionalDepotsModule, Display, "FAdditionalDepotsModule::StartupModule()");
+
+	if (!WITH_EDITOR)
+	{
+		SUBSCRIBE_METHOD(AFGCharacterPlayer::IsUploadInventoryEmpty, [](auto& Scope, const AFGCharacterPlayer* self) {
+			UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGCharacterPlayer::IsUploadInventoryEmpty() overriding return");
+
+			Scope.Override(true);
+		});
+
+		SUBSCRIBE_METHOD(AFGCentralStorageContainer::IsUploadInventoryEmpty, [](auto& Scope, AFGCentralStorageContainer* self) {
+			UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGCentralStorageContainer::IsUploadInventoryEmpty() overriding return");
+
+			Scope.Override(true);
+		});
+	}
 }
 
 void FAdditionalDepotsModule::ShutdownModule()

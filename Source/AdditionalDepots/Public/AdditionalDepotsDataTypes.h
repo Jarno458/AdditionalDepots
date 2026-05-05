@@ -19,16 +19,16 @@ struct ADDITIONALDEPOTS_API FAdditionalDepotConfiguration
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(BlueprintReadOnly, Category = "Configuration")
+	UPROPERTY(BlueprintReadOnly, SaveGame, Category = "Configuration")
 	int32 MaxAmount = 0;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Configuration")
+	UPROPERTY(BlueprintReadOnly, SaveGame, Category = "Configuration")
 	EFAAdditionalDepotsMaxType MaxType = EFAAdditionalDepotsMaxType::None;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Configuration")
+	UPROPERTY(BlueprintReadOnly, SaveGame, Category = "Configuration")
 	bool CanDragItemsToInventory = true;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Configuration")
+	UPROPERTY(BlueprintReadOnly, SaveGame, Category = "Configuration")
 	bool CanBeUsedWhenBuilding = true;
 };
 

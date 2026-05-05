@@ -2,7 +2,7 @@
 
 #include "AdditionalDepotsPerPlayerDataComponent.h"
 #include "AdditionalDepotsServerSubsystem.h"
-#include "GameFramework/PlayerState.h"
+#include "FGPlayerController.h"
 #include "Logging/StructuredLog.h"
 #include "Net/UnrealNetwork.h"
 
@@ -13,9 +13,17 @@ void UAdditionalDepotRCO::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(UAdditionalDepotRCO, RcoDummy);
 }
 
-void UAdditionalDepotRCO::ServerSetDepotPriority_Implementation(APlayerState* playerState, const TArray<FAdditionalDepotListPriority>& listPriorities)
+void UAdditionalDepotRCO::ServerSetDepotPriority_Implementation(const TArray<FAdditionalDepotListPriority>& listPriorities)
 {
 	UE_LOGFMT(LogAdditionalDepotRCO, Display, "RCO Set new list priorities for player {0}", listPriorities.Num());
+
+	 AFGPlayerController* controller = GetOwnerPlayerController();
+	 if (!IsValid(controller))
+		 return;
+
+	 AFGPlayerState* playerState = controller->GetPlayerState<AFGPlayerState>();
+	 if (!IsValid(playerState))
+		 return; 
 
 	 UAdditionalDepotsPerPlayerDataComponent* component = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
 
@@ -25,11 +33,27 @@ void UAdditionalDepotRCO::ServerSetDepotPriority_Implementation(APlayerState* pl
 void UAdditionalDepotRCO::ServerRemoveItem_Implementation(FName listIdentifier, FItemAmount itemAmount) {
 	UE_LOGFMT(LogAdditionalDepotRCO, Display, "RCO Take Item from Server: {0}, item: {1}", listIdentifier.ToString(), itemAmount.Amount);
 
-	AAdditionalDepotsServerSubsystem::Get(GetWorld())->RemoveItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount);
+	AFGPlayerController* controller = GetOwnerPlayerController();
+	if (!IsValid(controller))
+		return;
+
+	AFGPlayerState* playerState = controller->GetPlayerState<AFGPlayerState>();
+	if (!IsValid(playerState))
+		return;
+
+	AAdditionalDepotsServerSubsystem::Get(GetWorld())->RemoveItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount, playerState);
 }
 
 void UAdditionalDepotRCO::ServerAddItem_Implementation(FName listIdentifier, FItemAmount itemAmount) {
 	UE_LOGFMT(LogAdditionalDepotRCO, Display, "RCO Add Item to Server: {0}, item: {1}", listIdentifier.ToString(), itemAmount.Amount);
 
-	AAdditionalDepotsServerSubsystem::Get(GetWorld())->AddItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount);
+	AFGPlayerController* controller = GetOwnerPlayerController();
+	if (!IsValid(controller))
+		return;
+
+	AFGPlayerState* playerState = controller->GetPlayerState<AFGPlayerState>();
+	if (!IsValid(playerState))
+		return;
+
+	AAdditionalDepotsServerSubsystem::Get(GetWorld())->AddItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount, playerState);
 }

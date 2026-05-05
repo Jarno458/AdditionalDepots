@@ -59,7 +59,7 @@ class ADDITIONALDEPOTS_API AAdditionalDepotsServerSubsystem : public AModSubsyst
 	GENERATED_BODY()
 
 	// Begin IFGSaveInterface
-	virtual void PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override;
+	virtual void PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override {};
 	virtual void PostSaveGame_Implementation(int32 saveVersion, int32 gameVersion) override {};
 	virtual void PreLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override {};
 	virtual void PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion) override;
@@ -80,20 +80,18 @@ protected:
 	virtual void BeginPlay() override;
 
 private:
+	UPROPERTY(SaveGame)
 	TMap<FName, FAdditionalDepotConfiguration> depotConfigurations;
+
+	UPROPERTY(SaveGame)
 	TMap<FName, FMappedItemAmount> depotContents;
+
 	TMap<FName, bool> persistInSave;
 	TMap<FName, bool> uniquePerPlayer;
 
 	FCriticalSection depotLock;
 
 	bool initialized;
-
-	UPROPERTY(SaveGame)
-	TArray<FAAdditionalDepotsSaveableDepotContents> saveableDepotContents;
-
-	UPROPERTY(SaveGame)
-	TArray<FAAdditionalDepotsSaveableDepotConfiguration> saveableDepotConfigs;
 
 public:
 	FORCEINLINE bool IsInitialized() const { return initialized; }

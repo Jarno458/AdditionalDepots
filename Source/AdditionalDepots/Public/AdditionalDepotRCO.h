@@ -28,5 +28,5 @@ public:
 	void ServerAddItem(FName listIdentifier, FItemAmount itemAmount);
 
 	UFUNCTION(BlueprintCallable, Reliable, Server)
-	void ServerSetDepotPriority(APlayerState* playerState, const TArray<FAdditionalDepotListPriority>& listPriorities);
+	void ServerSetDepotPriority(const TArray<FAdditionalDepotListPriority>& listPriorities);
 };

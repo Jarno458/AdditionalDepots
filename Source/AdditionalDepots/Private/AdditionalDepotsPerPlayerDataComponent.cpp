@@ -41,31 +41,55 @@ void UAdditionalDepotsPerPlayerDataComponent::BeginPlay() {
 
 	UE_LOGFMT(LogAdditionalDepotsPerPlayerDataComponent, Display, "UAdditionalDepotsPerPlayerDataComponent::BeginPlay()");
 
-	if (DepotListPriorities.IsEmpty())
+	AFGPlayerState* playerState = Cast<AFGPlayerState>(GetOwner());
+	if (!IsValid(playerState) || !playerState->HasAuthority())
+		return;
+
+	AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+
+	if (!IsValid(serverSubsystem))
 	{
-		UE_LOG(LogAdditionalDepotsPerPlayerDataComponent, Display, TEXT("DepotListPriorities initializing"));
+		UE_LOG(LogAdditionalDepotsPerPlayerDataComponent, Error, TEXT("Failed to get server subsystem"));
+		return;
+	}
 
-		AFGPlayerState* playerState = Cast<AFGPlayerState>(GetOwner());
-		AFGPlayerController* playerController = playerState->GetOwningController();
+	TMap<FName, FAdditionalDepotListPriority> loadedEntries;
+	for (FAdditionalDepotListPriority& DepotListPriority : DepotListPriorities)
+		loadedEntries.Add(DepotListPriority.Identifier, DepotListPriority);
 
-		if (IsValid(playerController) && playerController->HasAuthority())
+	// we always rebuild it based on the server subsystem data, so it correctly reflects when certain mods are added or deleted
+	DepotListPriorities.Empty();
+
+	if (loadedEntries.Contains(UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier()))
+		DepotListPriorities.Add(loadedEntries[UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier()]);
+	else
+		DepotListPriorities.Add(FAdditionalDepotListPriority{ UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier(), true });
+
+	TArray<FName> currentListIdentifiers = serverSubsystem->GetListIdentifiers();
+
+	for (const FName& listIdentifier : currentListIdentifiers)
+	{
+		if (loadedEntries.Contains(listIdentifier))
 		{
-			AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+			DepotListPriorities.Add(loadedEntries[listIdentifier]);
+		}
+		else
+		{
+			FAdditionalDepotConfiguration config = serverSubsystem->GetConfiguration(listIdentifier);
 
-			if (!IsValid(serverSubsystem))
-			{
-				UE_LOG(LogAdditionalDepotsPerPlayerDataComponent, Error, TEXT("Failed to get server subsystem"));
-				return;
-			}
+			DepotListPriorities.Add(FAdditionalDepotListPriority{ listIdentifier, config.CanBeUsedWhenBuilding });
 
-			DepotListPriorities.Add(FAdditionalDepotListPriority{ UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier(), true });
+		}
+	}
 
-			for (const FName& listIdentifier : serverSubsystem->GetListIdentifiers())
-			{
-				FAdditionalDepotConfiguration config = serverSubsystem->GetConfiguration(listIdentifier);
+	TArray<FName> contentKeys;
+	depotContents.GenerateKeyArray(contentKeys);
 
-				DepotListPriorities.Add(FAdditionalDepotListPriority{ listIdentifier, config.CanBeUsedWhenBuilding });
-			}
+	for (const FName& contentKey : contentKeys)
+	{
+		if (!currentListIdentifiers.Contains(contentKey))
+		{
+			depotContents.Remove(contentKey);
 		}
 	}
 }
@@ -88,11 +112,11 @@ void UAdditionalDepotsPerPlayerDataComponent::SetListPriorities(TArray<FAddition
 		UAdditionalDepotRCO* rco = Cast<UAdditionalDepotRCO>(controller->GetRemoteCallObjectOfClass(UAdditionalDepotRCO::StaticClass()));
 		if (!IsValid(rco))
 		{
-			UE_LOG(LogAdditionalDepotsPerPlayerDataComponent, Error, TEXT("Failed to get RCO"));
+			UE_LOG(LogAdditionalDepotsPerPlayerDataComponent, Error, TEXT("Failed to get UAdditionalDepotRCO"));
 			return;
 		}
 
-		rco->ServerSetDepotPriority(playerState, Array);
+		rco->ServerSetDepotPriority(Array);
 	}
 }
 
@@ -101,56 +125,10 @@ TArray<FAdditionalDepotListPriority>& UAdditionalDepotsPerPlayerDataComponent::G
 	return DepotListPriorities;
 }
 
-void UAdditionalDepotsPerPlayerDataComponent::PreSaveGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
-	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "UAdditionalDepotsPerPlayerDataComponent::PreSaveGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
-
-	AFGPlayerState* playerState = Cast<AFGPlayerState>(GetOwner());
-	if (!IsValid(playerState))
-		return;
-
-	AFGPlayerController* controller = playerState->GetOwningController();
-	if (!IsValid(controller) || !controller->HasAuthority())
-		return;
-
-	AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
-
-	for (TPair<FName, FMappedItemAmount> DepotContent : depotContents)
-	{
-		if (serverSubsystem->IsPersistentInSave(DepotContent.Key))
-		{
-			FAAdditionalDepotsSaveableDepotContents Savable;
-			Savable.ListIdentifier = DepotContent.Key;
-			Savable.Contents = DepotContent.Value;
-
-			saveableDepotContents.Add(Savable);
-		}
-	}
-}
-
-void UAdditionalDepotsPerPlayerDataComponent::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
-{
-	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "UAdditionalDepotsPerPlayerDataComponent::PostLoadGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
-
-	AFGPlayerState* playerState = Cast<AFGPlayerState>(GetOwner());
-	if (!IsValid(playerState))
-		return;
-
-	AFGPlayerController* controller = playerState->GetOwningController();
-	if (!IsValid(controller) || !controller->HasAuthority())
-		return;
-
-	if (!saveableDepotContents.IsEmpty())
-	{
-		for (const FAAdditionalDepotsSaveableDepotContents& Savable : saveableDepotContents)
-			depotContents.FindOrAdd(Savable.ListIdentifier) = Savable.Contents;
-
-		saveableDepotContents.Empty();
-	}
-}
-
 void UAdditionalDepotsPerPlayerDataComponent::CopyComponentProperties_Implementation(UActorComponent* intoComponent)
 {
+	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "LogAdditionalDepotsServerSubsystem::CopyComponentProperties_Implementation()");
+
 	IFGPlayerStateComponentInterface::CopyComponentProperties_Implementation(intoComponent);
 
 	UAdditionalDepotsPerPlayerDataComponent* target = Cast<UAdditionalDepotsPerPlayerDataComponent>(intoComponent);
@@ -158,5 +136,5 @@ void UAdditionalDepotsPerPlayerDataComponent::CopyComponentProperties_Implementa
 		return;
 
 	target->DepotListPriorities = DepotListPriorities;
-	target->saveableDepotContents = saveableDepotContents;
+	target->depotContents = depotContents;
 }

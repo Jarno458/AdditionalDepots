@@ -7,8 +7,6 @@
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsUtils);
 
-#pragma optimize("", off)
-
 TArray<TSubclassOf<UAdditionalDepotDefinition>> UAdditionalDepotsUtils::LoadAdditionalDepotLists() {
 	UE_LOGFMT(LogAdditionalDepotsUtils, Display, "AdditionalDepotsUtils::BeginPlay()");
 
@@ -51,5 +49,3 @@ TArray<TSubclassOf<UAdditionalDepotDefinition>> UAdditionalDepotsUtils::LoadAddi
 
 	return lists;
 }
-
-#pragma optimize("", on)
