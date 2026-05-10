@@ -164,6 +164,9 @@ public:
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All Depot Lists Identifiers")
 	TArray<FName> GetListIdentifiers();
 
+	UFUNCTION(BlueprintCallable, meta = (ToolTip = "Get All Depot Lists Identifiers that have atleast one item in them"))
+	TArray<FName> GetNonEmptyListIdentifiers();
+
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All items in Depot List")
 	TArray<FItemAmount> GetItems(FName listIdentifier);
 
@@ -174,7 +177,7 @@ public:
 	FAdditionalDepotsItemDetails GetItemDetails(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass) const;
 
 	UFUNCTION(BlueprintCallable)
-	int32 GetTotalAmountStoredAmountForItem(TSubclassOf<UFGItemDescriptor> itemClass);
+	bool HasAnyAvailableForBuildingForItem(APlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass);
 
 	UFUNCTION(BlueprintCallable)
 	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(APlayerState* state, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount);

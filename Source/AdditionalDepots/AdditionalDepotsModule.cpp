@@ -2,7 +2,7 @@
 
 #include "AdditionalDepotsModule.h"
 
-#include "FGCentralStorageContainer.h"
+#include "FGCentralStorageSubsystem.h"
 #include "FGCharacterPlayer.h"
 #include "Patching/NativeHookManager.h"
 #include "StructuredLog.h"
@@ -15,19 +15,25 @@ void FAdditionalDepotsModule::StartupModule()
 {
 	UE_LOGFMT(LogAdditionalDepotsModule, Display, "FAdditionalDepotsModule::StartupModule()");
 
-	if (!WITH_EDITOR)
+	//if (!WITH_EDITOR)
 	{
-		SUBSCRIBE_METHOD(AFGCharacterPlayer::IsUploadInventoryEmpty, [](auto& Scope, const AFGCharacterPlayer* self) {
-			UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGCharacterPlayer::IsUploadInventoryEmpty() overriding return");
+		/*SUBSCRIBE_METHOD(AFGCentralStorageSubsystem::GetAllItemsFromCentralStorage, [](auto& Scope, AFGCentralStorageSubsystem* self, TArray<FItemAmount>& out_allItems) {
+			UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGCentralStorageContainer::GetAllItemsFromCentralStorage() getting all items");
 
-			Scope.Override(true);
-		});
+			Scope(self, out_allItems);
 
-		SUBSCRIBE_METHOD(AFGCentralStorageContainer::IsUploadInventoryEmpty, [](auto& Scope, AFGCentralStorageContainer* self) {
-			UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGCentralStorageContainer::IsUploadInventoryEmpty() overriding return");
+			if (out_allItems.Num() == 0)
+			{
+				UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGCentralStorageContainer::GetAllItemsFromCentralStorage() Store is empty, fakin it");
 
-			Scope.Override(true);
-		});
+				//todo create dummy item i guess, and filter it out on the ui side
+				//out_allItems.Add(FItemAmount());
+			}
+			else
+			{
+				UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGCentralStorageContainer::GetAllItemsFromCentralStorage() has %d items", out_allItems.Num());
+			}
+		});*/
 	}
 }
 

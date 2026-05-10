@@ -74,6 +74,27 @@ TArray<FName> AAdditionalDepotsClientSubsystem::GetListIdentifiers()
 	return lists;
 }
 
+TArray<FName> AAdditionalDepotsClientSubsystem::GetNonEmptyListIdentifiers()
+{
+	TArray<FName> lists;
+
+	for (const TPair<FName, FMappedItemAmount>& depot : depotContents)
+	{
+		if (depot.Value.ItemAmounts.Num() > 0)
+		{
+			lists.Add(depot.Key);
+		}
+	}
+
+	TArray<FItemAmount> items;
+	centralStorageSubsystem->GetAllItemsFromCentralStorage(items);
+
+	if (items.Num() > 0)
+		lists.Add(UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier());
+
+	return lists;
+}
+
 TArray<FItemAmount> AAdditionalDepotsClientSubsystem::GetItems(FName listIdentifier)
 {
 	TArray<FItemAmount> items;
@@ -133,25 +154,59 @@ FAdditionalDepotsItemDetails AAdditionalDepotsClientSubsystem::GetItemDetails(FN
 	return FAdditionalDepotsItemDetails(itemClass, amount, listDetails.MaxAmount, listDetails.MaxType, listDetails.Color);
 }
 
-int32 AAdditionalDepotsClientSubsystem::GetTotalAmountStoredAmountForItem(TSubclassOf<UFGItemDescriptor> itemClass)
+bool AAdditionalDepotsClientSubsystem::HasAnyAvailableForBuildingForItem(APlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass)
 {
-	TArray<FName> depots = GetListIdentifiers();
-	int64 totalAmount = 0;
-
-	totalAmount += centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
-
-	for (const TPair<FName, FAdditionalDepotsListDetailsData>& depot : depotLists)
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!playerData)
 	{
-		if (!depot.Value.CanBeUsedWhenBuilding)
-			continue;
-
-		if (depotContents.Contains(depot.Key) && depotContents[depot.Key].ItemAmounts.Contains(itemClass))
-		{
-			totalAmount += static_cast<int64>(depotContents[depot.Key].ItemAmounts[itemClass]);
-		}
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
+		return false;
 	}
 
-	return FMath::Clamp<int64>(totalAmount, 0, static_cast<int64>(MAX_int32));
+	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
+	{
+		if (!depot.CanBeUsedWhenBuilding) // player specific setting
+			continue;
+
+		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
+		{
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+				continue;
+
+			int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+
+			if (centralStorageAmount > 0)
+				return true;
+		}
+		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
+		{
+			AFGPlayerState* playerState = Cast<AFGPlayerState>(state);
+			AFGPlayerController* playerController = playerState->GetOwningController();
+			AFGCharacterPlayer* playerCharacter = Cast<AFGCharacterPlayer>(playerController->GetControlledCharacter());
+
+			if (!playerCharacter)
+			{
+				UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages() - Controlled character not found!");
+				return false;
+			}
+
+			int32 amountInInventory = playerCharacter->GetInventory()->GetNumItems(itemClass);
+			if (amountInInventory > 0)
+				return true;
+		}
+		else
+		{
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding //server configuration
+				|| !depotContents.Contains(depot.Identifier) || !depotContents[depot.Identifier].ItemAmounts.Contains(itemClass))
+				continue;
+
+			int32 depotAmount = depotContents[depot.Identifier].ItemAmounts[itemClass];
+			if (depotAmount > 0)
+				return true;
+		}
+	}
+	
+	return false;
 }
 
 TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages(APlayerState* state, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount)
