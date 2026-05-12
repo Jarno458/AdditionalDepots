@@ -159,7 +159,7 @@ bool AAdditionalDepotsClientSubsystem::HasAnyAvailableForBuildingForItem(APlayer
 	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
 	if (!playerData)
 	{
-		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::HasAnyAvailableForBuildingForItem() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
 		return false;
 	}
 
@@ -186,7 +186,7 @@ bool AAdditionalDepotsClientSubsystem::HasAnyAvailableForBuildingForItem(APlayer
 
 			if (!playerCharacter)
 			{
-				UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetOrderedRelativeStorages() - Controlled character not found!");
+				UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::HasAnyAvailableForBuildingForItem() - Controlled character not found!");
 				return false;
 			}
 
@@ -301,6 +301,46 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 	OutTotalAmount = static_cast<int32>(FMath::Clamp<int64>(totalAmount, 0, static_cast<int64>(MAX_int32)));
 
 	return amounts;
+}
+
+int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem(UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass)
+{
+	int64 amount = 0;
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!playerData)
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
+		return false;
+	}
+
+	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
+	{
+		if (!depot.CanBeUsedWhenBuilding) // player specific setting
+			continue;
+
+		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
+		{
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+				continue;
+
+			amount += centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+		}
+		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
+		{
+			amount += inventory->GetNumItems(itemClass);
+		}
+		else
+		{
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding //server configuration
+				|| !depotContents.Contains(depot.Identifier) || !depotContents[depot.Identifier].ItemAmounts.Contains(itemClass))
+				continue;
+
+			amount += depotContents[depot.Identifier].ItemAmounts[itemClass];
+		}
+	}
+
+	return  static_cast<int32>(FMath::Clamp<int64>(amount, 0, INT32_MAX));
 }
 
 void AAdditionalDepotsClientSubsystem::AddItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)

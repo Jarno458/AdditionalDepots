@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
+#include "FGCentralStorageSubsystem.h"
 #include "FGPlayerState.h"
 #include "FGSaveInterface.h"
 #include "ItemAmount.h"
@@ -132,6 +133,11 @@ public:
 	UFUNCTION(BlueprintCallable, DisplayName = "Is the depot list saved")
 	bool IsPersistentInSave(FName listIdentifier);
 
+	UFUNCTION(BlueprintCallable, DisplayName = "Get total amount avaiable for building with this item")
+	int32 GetAmountForBuildingForItem(UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass);
+
+	void PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount);
+
 	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
 	FADOnDepotItemsAddedOrRemoved OnItemRemoved;
 
@@ -143,7 +149,7 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
 	FADOnDepotConfigurationUpdated OnConfigurationUpdated;
-	
+
 private:
 	void AddList(TSubclassOf<UAdditionalDepotDefinition> details);
 

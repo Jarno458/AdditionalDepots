@@ -4,6 +4,8 @@
 #include "AdditionalDepotsPerPlayerDataComponent.h"
 #include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsUtils.h"
+#include "FGCentralStorageSubsystem.h"
+#include "FGInventoryLibrary.h"
 #include "Subsystem/SubsystemActorManager.h"
 #include "Logging/StructuredLog.h"
 
@@ -244,6 +246,100 @@ void AAdditionalDepotsServerSubsystem::UpdateMaxAmount(FName listIdentifier, EFA
 bool AAdditionalDepotsServerSubsystem::IsPersistentInSave(FName listIdentifier)
 {
 	return listIdentifier.IsValid() && persistInSave.Contains(listIdentifier) && persistInSave[listIdentifier];
+}
+
+int32 AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem(UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass)
+{
+	int64 amount = 0;
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!playerData)
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
+		return 0;
+	}
+
+	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
+	{
+		if (!depot.CanBeUsedWhenBuilding) // player specific setting
+			continue;
+
+		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
+		{
+			AFGCentralStorageSubsystem* centralStorageSubsystem = AFGCentralStorageSubsystem::Get(GetWorld());
+			if (!centralStorageSubsystem)
+				continue;
+
+			amount += centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+		}
+		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
+		{
+			amount += inventory->GetNumItems(itemClass);
+		}
+		else
+		{
+			if (!depotConfigurations.Contains(depot.Identifier) || !depotConfigurations[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+				continue;
+
+			TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(depot.Identifier, state);
+			if (!depotContentsMap || !depotContentsMap->Contains(depot.Identifier) || !(*depotContentsMap)[depot.Identifier].ItemAmounts.Contains(itemClass))
+				continue;
+
+			amount += (*depotContentsMap)[depot.Identifier].ItemAmounts[itemClass];
+		}
+	}
+
+	return  static_cast<int32>(FMath::Clamp<int64>(amount, 0, INT32_MAX));
+}
+
+void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)
+{
+	if (!HasAuthority())
+		return;
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!playerData)
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::PayBuildingCost() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
+		return;
+	}
+
+	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
+	{
+		if (!depot.CanBeUsedWhenBuilding) // player specific setting
+			continue;
+
+		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
+		{
+			amount -= centralStorageSubsystem->TryRemoveItemsFromCentralStorage(itemClass, amount);
+			if (amount <= 0)
+				break;
+		}
+		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
+		{
+			int32 available = inventory->GetNumItems(itemClass);
+			int32 amountToTake = FMath::Min(available, amount);
+
+			inventory->Remove(itemClass, amountToTake);
+
+			amount -= amountToTake;
+			if (amount <= 0)
+				break;
+		}
+		else
+		{
+			if (!depotConfigurations.Contains(depot.Identifier) || !depotConfigurations[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+				continue;
+
+			TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(depot.Identifier, state);
+			if (!depotContentsMap || !depotContentsMap->Contains(depot.Identifier) || !(*depotContentsMap)[depot.Identifier].ItemAmounts.Contains(itemClass))
+				continue;
+
+			amount -= RemoveItem(depot.Identifier, itemClass, amount, state);
+			if (amount <= 0)
+				break;
+		}
+	}
 }
 
 void AAdditionalDepotsServerSubsystem::AddList(TSubclassOf<UAdditionalDepotDefinition> details)
