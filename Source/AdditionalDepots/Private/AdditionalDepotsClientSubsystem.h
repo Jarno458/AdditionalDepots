@@ -182,7 +182,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	TArray<FAdditionalDepotsColorAmount> GetOrderedRelativeStorages(APlayerState* state, int cost, TSubclassOf<UFGItemDescriptor> itemClass, int32& OutTotalAmount);
 
-	int32 GetAmountForBuildingForItem(UFGInventoryComponent* playerInventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass);
+	UFUNCTION(BlueprintCallable)
+	int32 GetAmountForBuildingForItem(const UFGInventoryComponent* playerInventory, TSubclassOf<UFGItemDescriptor> itemClass, const AFGPlayerState* playerState = nullptr);
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetAmountForBuildingInDepotsForItem(const UFGInventoryComponent* playerInventory, TSubclassOf<UFGItemDescriptor> itemClass, const AFGPlayerState* playerState = nullptr);
+
 
 public: //internal
 

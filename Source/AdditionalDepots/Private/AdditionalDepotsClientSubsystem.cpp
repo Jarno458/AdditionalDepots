@@ -303,15 +303,26 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 	return amounts;
 }
 
-int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem(UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass)
+int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem(const UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, const AFGPlayerState* playerState)
 {
 	int64 amount = 0;
 
-	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	 if (!IsValid(playerState))
+	 {
+		 playerState = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
+
+		 if (!playerState)
+		 {
+			 UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem() - PlayerState not found!");
+			 return 0;
+		 }
+	 }
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
 	if (!playerData)
 	{
 		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
-		return false;
+		return 0;
 	}
 
 	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
@@ -329,6 +340,57 @@ int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem(UFGInventory
 		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
 		{
 			amount += inventory->GetNumItems(itemClass);
+		}
+		else
+		{
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding //server configuration
+				|| !depotContents.Contains(depot.Identifier) || !depotContents[depot.Identifier].ItemAmounts.Contains(itemClass))
+				continue;
+
+			amount += depotContents[depot.Identifier].ItemAmounts[itemClass];
+		}
+	}
+
+	return  static_cast<int32>(FMath::Clamp<int64>(amount, 0, INT32_MAX));
+}
+
+int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingInDepotsForItem(const UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, const AFGPlayerState* playerState)
+{
+	int64 amount = 0;
+
+	if (!IsValid(playerState))
+	{
+		playerState = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
+
+		if (!playerState)
+		{
+			UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem() - PlayerState not found!");
+			return 0;
+		}
+	}
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!playerData)
+	{
+		UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
+		return 0;
+	}
+
+	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
+	{
+		if (!depot.CanBeUsedWhenBuilding) // player specific setting
+			continue;
+
+		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
+		{
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+				continue;
+
+			amount += centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+		}
+		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
+		{
+			//not taken into account for player inventory
 		}
 		else
 		{

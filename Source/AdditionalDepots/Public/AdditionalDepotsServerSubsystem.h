@@ -16,14 +16,14 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(
 	FName, ListIdentifier,
 	TSubclassOf<UFGItemDescriptor>, ItemClass,
 	int, Amount,
-	AFGPlayerState*, PlayerState
+	const AFGPlayerState*, PlayerState
 );
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
 	FADOnDepotItemAmountUpdated,
 	FName, ListIdentifier,
-	TArray<FItemAmount>, Items,
-	AFGPlayerState*, PlayerState
+	const TArray<FItemAmount>&, Items,
+	const AFGPlayerState*, PlayerState
 );
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
@@ -98,25 +98,25 @@ public:
 	FORCEINLINE bool IsInitialized() const { return initialized; }
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Depot Content", ToolTip = "Sets the content of a depot list (overriding existing content), should only be called on server."))
-	void SetDepotContent(FName listIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState = nullptr);
+	void SetDepotContent(FName listIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState = nullptr);
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add Item To Depot", ToolTip = "Adds an amount of items to a specific depot list, returns the total items added"))
-	int32 AddItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState = nullptr);
+	int32 AddItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState = nullptr);
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add Items To Depot", ToolTip = "Adds an amount of items to a specific depot list, returns the total items added"))
-	TArray<FItemAmount> AddItems(FName listIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState = nullptr);
+	TArray<FItemAmount> AddItems(FName listIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState = nullptr);
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Remove Item To Depot", ToolTip = "Removes an amount of items form a specific depot list, returns the total items removed"))
-	int32 RemoveItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState = nullptr);
+	int32 RemoveItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState = nullptr);
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Remove Items To Depot", ToolTip = "Removes an amount of items from a specific depot list, returns the total items removed"))
-	TArray<FItemAmount> RemoveItems(FName listIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState = nullptr);
+	TArray<FItemAmount> RemoveItems(FName listIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState = nullptr);
 
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All Depot Lists Identifiers")
 	TArray<FName> GetListIdentifiers();
 
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All items in Depot List")
-	TArray<FItemAmount> GetItems(FName listIdentifier, AFGPlayerState* playerState = nullptr);
+	TArray<FItemAmount> GetItems(FName listIdentifier, const AFGPlayerState* playerState = nullptr);
 
 	UFUNCTION(BlueprintCallable, DisplayName = "Get All configuration for Depot List")
 	FAdditionalDepotConfiguration GetConfiguration(FName listIdentifier);
@@ -134,9 +134,10 @@ public:
 	bool IsPersistentInSave(FName listIdentifier);
 
 	UFUNCTION(BlueprintCallable, DisplayName = "Get total amount avaiable for building with this item")
-	int32 GetAmountForBuildingForItem(UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass);
+	int32 GetAmountForBuildingForItem(const UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, const AFGPlayerState* state);
 
-	void PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount);
+	UFUNCTION(BlueprintCallable)
+	void PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* state = nullptr);
 
 	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
 	FADOnDepotItemsAddedOrRemoved OnItemRemoved;
@@ -153,11 +154,11 @@ public:
 private:
 	void AddList(TSubclassOf<UAdditionalDepotDefinition> details);
 
-	int32 AddItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState, bool broadcast = true);
-	int32 RemoveItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState, bool broadcast = true);
+	int32 AddItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState, bool broadcast = true);
+	int32 RemoveItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState, bool broadcast = true);
 
-	TMap<FName, FMappedItemAmount>* GetDepotContent(FName listIdentifier, AFGPlayerState* playerState);
+	TMap<FName, FMappedItemAmount>* GetDepotContent(FName listIdentifier, const AFGPlayerState* playerState);
 
-	void BroadCastNewItemAmounts(FName listIdentifier, TArray<TSubclassOf<UFGItemDescriptor>> itemClasses, AFGPlayerState* playerState);
+	void BroadCastNewItemAmounts(FName listIdentifier, TArray<TSubclassOf<UFGItemDescriptor>> itemClasses, const AFGPlayerState* playerState);
 	void BroadCastNewConfiguration(FName listIdentifier);
 };

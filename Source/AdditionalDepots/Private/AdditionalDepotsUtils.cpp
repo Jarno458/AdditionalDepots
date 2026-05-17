@@ -2,6 +2,7 @@
 
 #include "Logging/StructuredLog.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "FGPlayerController.h"
 #include "Engine/Blueprint.h"
 #include "UObject/SoftObjectPath.h"
 
@@ -48,4 +49,41 @@ TArray<TSubclassOf<UAdditionalDepotDefinition>> UAdditionalDepotsUtils::LoadAddi
 	}
 
 	return lists;
+}
+
+AFGPlayerState* UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(const UFGInventoryComponent* inventory)
+{
+	if (!IsValid(inventory))
+		return nullptr;
+
+	AFGPlayerState* directState = inventory->GetOwningPlayerState();
+	if (IsValid(directState))
+		return directState;
+
+	APawn* ownerPawn = Cast<APawn>(inventory->GetOwner());
+	if (!IsValid(ownerPawn))
+		return TryGetPlayerStateBasedOnController(inventory);
+
+	AFGPlayerState* pawnOwnedState = ownerPawn->GetPlayerState<AFGPlayerState>();
+	if (IsValid(pawnOwnedState))
+		return pawnOwnedState;
+
+	return TryGetPlayerStateBasedOnController(inventory);
+}
+
+AFGPlayerState* UAdditionalDepotsUtils::TryGetPlayerStateBasedOnController(const UFGInventoryComponent* inventory)
+{
+	for (TPlayerControllerIterator<AFGPlayerController>::ServerAll playerController(inventory->GetWorld()); playerController; ++playerController) {
+		if (!IsValid(*playerController))
+			continue;
+
+		AFGCharacterPlayer* character = Cast<AFGCharacterPlayer>(playerController->GetCharacter());
+		if (!IsValid(character))
+			continue;
+
+		if (character->GetInventory() == inventory)
+			return playerController->GetPlayerState<AFGPlayerState>();
+	}
+
+	return nullptr;
 }

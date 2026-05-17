@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
+#include "FGInventoryComponent.h"
+#include "FGPlayerState.h"
 #include "SubsystemActorManager.h"
 #include "Engine/DataAsset.h"
 #include "AdditionalDepotsUtils.generated.h"
@@ -16,6 +18,12 @@ class UAdditionalDepotsUtils : public UObject
 public:
 	static TArray<TSubclassOf<UAdditionalDepotDefinition>> LoadAdditionalDepotLists();
 
+	static AFGPlayerState* TryGetPlayerStateFromInventory(const UFGInventoryComponent* inventory);
+
+private:
+	static AFGPlayerState* TryGetPlayerStateBasedOnController(const UFGInventoryComponent* inventory);
+
+public:
 	template<typename T>
 	static T* GetSubsystemActorIncludingParentClasses(UWorld* world) {
 		USubsystemActorManager* SubsystemActorManager = world->GetSubsystem<USubsystemActorManager>();

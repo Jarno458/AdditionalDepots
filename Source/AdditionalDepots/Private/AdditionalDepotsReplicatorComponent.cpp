@@ -279,7 +279,7 @@ void UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData(const FA
 	}
 }
 
-void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName ListIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState)
+void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName ListIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState)
 {
 	FAdditionalDepotsItemReplicationMessage Message;
 	Message.ItemData = TArray<FReplicatedItemData>();

@@ -6,6 +6,7 @@
 #include "FGInventoryComponent.h"
 #include "AdditionalDepotsClientSubsystem.h"
 #include "AdditionalDepotsServerSubsystem.h"
+#include "AdditionalDepotsUtils.h"
 #include "FGConstructDisqualifier.h"
 #include "FGInventoryLibrary.h"
 #include "FGPlayerController.h"
@@ -37,7 +38,7 @@ void FAdditionalDepotsModule::ShutdownModule()
 	}
 }
 
-void FAdditionalDepotsModule::CheckCanAffordHook(TCallScope<void(*)(AFGHologram*, UFGInventoryComponent*)>& func, AFGHologram* hologram, UFGInventoryComponent* inventory) {
+void FAdditionalDepotsModule::CheckCanAffordHook(TCallScope<void(*)(AFGHologram*, UFGInventoryComponent*)>& func, AFGHologram* hologram, const UFGInventoryComponent* inventory) {
 	if (!IsValid(hologram) || !IsValid(inventory)) {
 		UE_LOGFMT(LogAdditionalDepotsModule, Error, "AFGHologram::CheckCanAfford() - hologram or inventory is not valid! FALLBACK to original function");
 		return;
@@ -46,19 +47,16 @@ void FAdditionalDepotsModule::CheckCanAffordHook(TCallScope<void(*)(AFGHologram*
 	if (inventory->GetNoBuildCost())
 		return;
 
-	AFGCharacterPlayer* playerPawn = Cast<AFGCharacterPlayer>(hologram->GetConstructionInstigator());
-	if (!playerPawn)
-	{
-		UE_LOGFMT(LogAdditionalDepotsModule, Error, "AFGHologram::CheckCanAfford() - Could not get player pawn! FALLBACK to inventory + dimensional depot");
-		return;
-	}
+	AFGPlayerState* state;
 
-	AFGPlayerState* state = Cast<AFGPlayerState>(playerPawn->GetPlayerState());
+	AFGCharacterPlayer* playerPawn = Cast<AFGCharacterPlayer>(hologram->GetConstructionInstigator());
+	if (playerPawn)
+		state = Cast<AFGPlayerState>(playerPawn->GetPlayerState());
+	else
+		state = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
+
 	if (!state)
-	{
-		UE_LOGFMT(LogAdditionalDepotsModule, Error, "AFGHologram::CheckCanAfford() - Could not get player state! FALLBACK to inventory + dimensional depot");
 		return;
-	}
 
 	func.Cancel();
 
@@ -80,7 +78,7 @@ void FAdditionalDepotsModule::CheckCanAffordHook(TCallScope<void(*)(AFGHologram*
 	}
 }
 
-void FAdditionalDepotsModule::CanProduceHook(TCallScope<bool(*)(const UFGWorkBench*, TSubclassOf<UFGRecipe>, UFGInventoryComponent*)>& func, const UFGWorkBench* workBench, TSubclassOf<UFGRecipe> recipe, UFGInventoryComponent* inventory)
+void FAdditionalDepotsModule::CanProduceHook(TCallScope<bool(*)(const UFGWorkBench*, TSubclassOf<UFGRecipe>, UFGInventoryComponent*)>& func, const UFGWorkBench* workBench, TSubclassOf<UFGRecipe> recipe, const UFGInventoryComponent* inventory)
 {
 	if (!IsValid(workBench) || !IsValid(inventory)) {
 		UE_LOGFMT(LogAdditionalDepotsModule, Error, "UFGWorkBench::CanProduce() - workBench or inventory is not valid! FALLBACK to original function");
@@ -140,17 +138,17 @@ void FAdditionalDepotsModule::GrabItemsFromInventoryAndCentralStorageHook(
 		return;
 	}
 
-	AFGPlayerState* playerState = GetPlayerStateFromInventory(inventory);
+	AFGPlayerState* playerState = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
 	if (!playerState)
 	{
 		UE_LOGFMT(LogAdditionalDepotsModule, Error, "AFGHologram::CheckCanAfford() - Could not get player state for inventory!");
 		return;
 	}
 
-	serverSubsystem->PayBuildingCost(centralStorageSubsystem, inventory, playerState, itemClass, numItemsToRemove);
+	serverSubsystem->PayBuildingCost(centralStorageSubsystem, inventory, itemClass, numItemsToRemove, playerState);
 }
 
-bool FAdditionalDepotsModule::ServerCanAfford(const TArray<FItemAmount>& itemAmounts, UFGInventoryComponent* inventory, AFGPlayerState* playerState)
+bool FAdditionalDepotsModule::ServerCanAfford(const TArray<FItemAmount>& itemAmounts, const UFGInventoryComponent* inventory, const AFGPlayerState* playerState)
 {
 	AAdditionalDepotsServerSubsystem* serverSubsystem = AAdditionalDepotsServerSubsystem::Get(playerState->GetWorld());
 	if (!serverSubsystem)
@@ -161,7 +159,7 @@ bool FAdditionalDepotsModule::ServerCanAfford(const TArray<FItemAmount>& itemAmo
 
 	for (const FItemAmount& itemCost : itemAmounts)
 	{
-		int32 availableAmount = serverSubsystem->GetAmountForBuildingForItem(inventory, playerState, itemCost.ItemClass);
+		int32 availableAmount = serverSubsystem->GetAmountForBuildingForItem(inventory, itemCost.ItemClass, playerState);
 		if (availableAmount < itemCost.Amount)
 			return false;
 	}
@@ -169,7 +167,7 @@ bool FAdditionalDepotsModule::ServerCanAfford(const TArray<FItemAmount>& itemAmo
 	return true;
 }
 
-bool FAdditionalDepotsModule::ClientCanAfford(const TArray<FItemAmount>& itemAmounts, UFGInventoryComponent* inventory, AFGPlayerState* playerState)
+bool FAdditionalDepotsModule::ClientCanAfford(const TArray<FItemAmount>& itemAmounts, const UFGInventoryComponent* inventory, const AFGPlayerState* playerState)
 {
 	AAdditionalDepotsClientSubsystem* clientSubsystem = AAdditionalDepotsClientSubsystem::Get(playerState->GetWorld());
 	if (!clientSubsystem)
@@ -180,7 +178,7 @@ bool FAdditionalDepotsModule::ClientCanAfford(const TArray<FItemAmount>& itemAmo
 
 	for (const FItemAmount& itemCost : itemAmounts)
 	{
-		int32 availableAmount = clientSubsystem->GetAmountForBuildingForItem(inventory, playerState, itemCost.ItemClass);
+		int32 availableAmount = clientSubsystem->GetAmountForBuildingForItem(inventory, itemCost.ItemClass, playerState);
 		if (availableAmount < itemCost.Amount)
 		{
 			return false;
@@ -188,34 +186,6 @@ bool FAdditionalDepotsModule::ClientCanAfford(const TArray<FItemAmount>& itemAmo
 	}
 
 	return true;
-}
-
-AFGPlayerState* FAdditionalDepotsModule::GetPlayerStateFromInventory(const UFGInventoryComponent* inventory)
-{
-	if (!IsValid(inventory))
-		return nullptr;
-
-	APawn* ownerPawn = Cast<APawn>(inventory->GetOwner());
-	if (!IsValid(ownerPawn))
-		return nullptr;
-
-	AFGPlayerState* pawnOwnedState = ownerPawn->GetPlayerState<AFGPlayerState>();
-	if (IsValid(pawnOwnedState))
-		return pawnOwnedState;
-
-	for (TPlayerControllerIterator<AFGPlayerController>::ServerAll playerController(inventory->GetWorld()); playerController; ++playerController) {
-		if (!IsValid(*playerController))
-			continue;
-
-		AFGCharacterPlayer* character = Cast<AFGCharacterPlayer>(playerController->GetCharacter());
-		if (!IsValid(character))
-			continue;
-
-		if (character->GetInventory() == inventory)
-			return playerController->GetPlayerState<AFGPlayerState>();
-	}
-
-	return nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE

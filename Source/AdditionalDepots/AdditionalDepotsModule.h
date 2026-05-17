@@ -16,8 +16,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsModule, Log, All);
 class FAdditionalDepotsModule : public IModuleInterface
 {
 public:
-
-	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
@@ -26,12 +24,10 @@ private:
 	FDelegateHandle workbenchCanProduceHandle;
 	FDelegateHandle inventoryGrabItemsFromInventoryAndCentralStorage;
 
-	static void CheckCanAffordHook(TCallScope<void(*)(AFGHologram*, UFGInventoryComponent*)>& func, AFGHologram* hologram, UFGInventoryComponent* inventory);
-	static void CanProduceHook(TCallScope<bool(*)(const UFGWorkBench*, TSubclassOf<UFGRecipe>, UFGInventoryComponent*)>& func, const UFGWorkBench* workBench, TSubclassOf<UFGRecipe> recipe, UFGInventoryComponent* inventory);
+	static void CheckCanAffordHook(TCallScope<void(*)(AFGHologram*, UFGInventoryComponent*)>& func, AFGHologram* hologram, const UFGInventoryComponent* inventory);
+	static void CanProduceHook(TCallScope<bool(*)(const UFGWorkBench*, TSubclassOf<UFGRecipe>, UFGInventoryComponent*)>& func, const UFGWorkBench* workBench, TSubclassOf<UFGRecipe> recipe, const UFGInventoryComponent* inventory);
 	static void GrabItemsFromInventoryAndCentralStorageHook(TCallScope<void(*)(UFGInventoryComponent*, AFGCentralStorageSubsystem*, bool, TSubclassOf<UFGItemDescriptor>, int32)>& func, UFGInventoryComponent* inventory, AFGCentralStorageSubsystem* centralStorageSubsystem, bool takeFromInventoryBeforeCentralStorage, TSubclassOf<UFGItemDescriptor> itemClass, int32 numItemsToRemove);
 
-	static bool ServerCanAfford(const TArray<FItemAmount>& itemAmounts, UFGInventoryComponent* inventory, AFGPlayerState* playerState);
-	static bool ClientCanAfford(const TArray<FItemAmount>& itemAmounts, UFGInventoryComponent* inventory, AFGPlayerState* playerState);
-
-	static AFGPlayerState* GetPlayerStateFromInventory(const UFGInventoryComponent* inventory);
+	static bool ServerCanAfford(const TArray<FItemAmount>& itemAmounts, const UFGInventoryComponent* inventory, const AFGPlayerState* playerState);
+	static bool ClientCanAfford(const TArray<FItemAmount>& itemAmounts, const UFGInventoryComponent* inventory, const AFGPlayerState* playerState);
 };

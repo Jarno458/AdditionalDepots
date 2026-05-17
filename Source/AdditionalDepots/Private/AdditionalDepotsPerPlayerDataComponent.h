@@ -30,7 +30,7 @@ public:
 	UAdditionalDepotsPerPlayerDataComponent();
 
 	UFUNCTION(BlueprintPure, DisplayName = "Get Additional Depots Per Player Data")
-	static UAdditionalDepotsPerPlayerDataComponent* Get(AFGPlayerState* playerState);
+	static UAdditionalDepotsPerPlayerDataComponent* Get(const AFGPlayerState* playerState);
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -46,7 +46,7 @@ public:
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "AdditionalDepots")
-	void SetListPriorities(TArray<FAdditionalDepotListPriority> Array);
+	void SetListPriorities(const TArray<FAdditionalDepotListPriority>& Array);
 
 	UFUNCTION(BlueprintCallable, Category = "AdditionalDepots")
 	TArray<FAdditionalDepotListPriority>& GetListPriorities();

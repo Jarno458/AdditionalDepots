@@ -5,7 +5,6 @@
 #include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsUtils.h"
 #include "FGCentralStorageSubsystem.h"
-#include "FGInventoryLibrary.h"
 #include "Subsystem/SubsystemActorManager.h"
 #include "Logging/StructuredLog.h"
 
@@ -48,7 +47,7 @@ void AAdditionalDepotsServerSubsystem::PostActorCreated()
 	initialized = true;
 }
 
-void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState)
+void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState)
 {
 	if (!listIdentifier.IsValid())
 	{
@@ -98,7 +97,7 @@ void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, TAr
 	BroadCastNewItemAmounts(listIdentifier, updatedItems, playerState);
 }
 
-int32 AAdditionalDepotsServerSubsystem::AddItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState)
+int32 AAdditionalDepotsServerSubsystem::AddItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState)
 {
 	int32 added = AddItemInternal(listIdentifier, itemClass, amount, playerState);
 
@@ -107,7 +106,7 @@ int32 AAdditionalDepotsServerSubsystem::AddItem(FName listIdentifier, TSubclassO
 	return added;
 }
 
-TArray<FItemAmount> AAdditionalDepotsServerSubsystem::AddItems(FName listIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState)
+TArray<FItemAmount> AAdditionalDepotsServerSubsystem::AddItems(FName listIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState)
 {
 	TMap<TSubclassOf<UFGItemDescriptor>, int32> addedItems;
 
@@ -130,7 +129,7 @@ TArray<FItemAmount> AAdditionalDepotsServerSubsystem::AddItems(FName listIdentif
 	return result;
 }
 
-int32 AAdditionalDepotsServerSubsystem::RemoveItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState)
+int32 AAdditionalDepotsServerSubsystem::RemoveItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState)
 {
 	int32 removed = RemoveItemInternal(listIdentifier, itemClass, amount, playerState);
 
@@ -138,7 +137,7 @@ int32 AAdditionalDepotsServerSubsystem::RemoveItem(FName listIdentifier, TSubcla
 	return removed;
 }
 
-TArray<FItemAmount> AAdditionalDepotsServerSubsystem::RemoveItems(FName listIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState)
+TArray<FItemAmount> AAdditionalDepotsServerSubsystem::RemoveItems(FName listIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState)
 {
 	TMap<TSubclassOf<UFGItemDescriptor>, int32> removedItems;
 
@@ -168,7 +167,7 @@ TArray<FName> AAdditionalDepotsServerSubsystem::GetListIdentifiers()
 	return lists;
 }
 
-TArray<FItemAmount> AAdditionalDepotsServerSubsystem::GetItems(FName listIdentifier, AFGPlayerState* playerState)
+TArray<FItemAmount> AAdditionalDepotsServerSubsystem::GetItems(FName listIdentifier, const AFGPlayerState* playerState)
 {
 	TArray<FItemAmount> items;
 
@@ -248,11 +247,22 @@ bool AAdditionalDepotsServerSubsystem::IsPersistentInSave(FName listIdentifier)
 	return listIdentifier.IsValid() && persistInSave.Contains(listIdentifier) && persistInSave[listIdentifier];
 }
 
-int32 AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem(UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass)
+int32 AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem(const UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, const AFGPlayerState* playerState)
 {
 	int64 amount = 0;
 
-	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!IsValid(playerState))
+	{
+		playerState = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
+
+		if (!playerState)
+		{
+			UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem() - PlayerState not found!");
+			return 0;
+		}
+	}
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
 	if (!playerData)
 	{
 		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
@@ -281,7 +291,7 @@ int32 AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem(UFGInventory
 			if (!depotConfigurations.Contains(depot.Identifier) || !depotConfigurations[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
 				continue;
 
-			TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(depot.Identifier, state);
+			TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(depot.Identifier, playerState);
 			if (!depotContentsMap || !depotContentsMap->Contains(depot.Identifier) || !(*depotContentsMap)[depot.Identifier].ItemAmounts.Contains(itemClass))
 				continue;
 
@@ -292,12 +302,23 @@ int32 AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem(UFGInventory
 	return  static_cast<int32>(FMath::Clamp<int64>(amount, 0, INT32_MAX));
 }
 
-void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, AFGPlayerState* state, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount)
+void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState)
 {
 	if (!HasAuthority())
 		return;
 
-	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(state->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
+	if (!IsValid(playerState))
+	{
+		playerState = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
+
+		if (!playerState)
+		{
+			UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::PayBuildingCost() - PlayerState not found!");
+			return;
+		}
+	}
+
+	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
 	if (!playerData)
 	{
 		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::PayBuildingCost() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
@@ -331,11 +352,11 @@ void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsyste
 			if (!depotConfigurations.Contains(depot.Identifier) || !depotConfigurations[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
 				continue;
 
-			TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(depot.Identifier, state);
+			TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(depot.Identifier, playerState);
 			if (!depotContentsMap || !depotContentsMap->Contains(depot.Identifier) || !(*depotContentsMap)[depot.Identifier].ItemAmounts.Contains(itemClass))
 				continue;
 
-			amount -= RemoveItem(depot.Identifier, itemClass, amount, state);
+			amount -= RemoveItem(depot.Identifier, itemClass, amount, playerState);
 			if (amount <= 0)
 				break;
 		}
@@ -369,7 +390,7 @@ void AAdditionalDepotsServerSubsystem::AddList(TSubclassOf<UAdditionalDepotDefin
 	depotContents.FindOrAdd(cdo->Identifier);
 }
 
-int32 AAdditionalDepotsServerSubsystem::AddItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState, bool broadcast)
+int32 AAdditionalDepotsServerSubsystem::AddItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState, bool broadcast)
 {
 	if (!listIdentifier.IsValid())
 		return 0;
@@ -416,7 +437,7 @@ int32 AAdditionalDepotsServerSubsystem::AddItemInternal(FName listIdentifier, TS
 	return Added;
 }
 
-int32 AAdditionalDepotsServerSubsystem::RemoveItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, AFGPlayerState* playerState, bool broadcast)
+int32 AAdditionalDepotsServerSubsystem::RemoveItemInternal(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState, bool broadcast)
 {
 	if (!listIdentifier.IsValid())
 		return 0;
@@ -457,7 +478,7 @@ int32 AAdditionalDepotsServerSubsystem::RemoveItemInternal(FName listIdentifier,
 	return Removed;
 }
 
-TMap<FName, FMappedItemAmount>* AAdditionalDepotsServerSubsystem::GetDepotContent(FName listIdentifier, AFGPlayerState* playerState)
+TMap<FName, FMappedItemAmount>* AAdditionalDepotsServerSubsystem::GetDepotContent(FName listIdentifier, const AFGPlayerState* playerState)
 {
 	if (!listIdentifier.IsValid())
 		return &depotContents;
@@ -483,7 +504,7 @@ TMap<FName, FMappedItemAmount>* AAdditionalDepotsServerSubsystem::GetDepotConten
 	return &perPlayerData->depotContents;
 }
 
-void AAdditionalDepotsServerSubsystem::BroadCastNewItemAmounts(FName listIdentifier, TArray<TSubclassOf<UFGItemDescriptor>> itemClasses, AFGPlayerState* playerState)
+void AAdditionalDepotsServerSubsystem::BroadCastNewItemAmounts(FName listIdentifier, TArray<TSubclassOf<UFGItemDescriptor>> itemClasses, const AFGPlayerState* playerState)
 {
 	if (!initialized)
 		return;

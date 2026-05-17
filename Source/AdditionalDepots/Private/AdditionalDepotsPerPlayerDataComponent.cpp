@@ -17,7 +17,7 @@ UAdditionalDepotsPerPlayerDataComponent::UAdditionalDepotsPerPlayerDataComponent
 	SetIsReplicatedByDefault(true);
 }
 
-UAdditionalDepotsPerPlayerDataComponent* UAdditionalDepotsPerPlayerDataComponent::Get(AFGPlayerState* playerState)
+UAdditionalDepotsPerPlayerDataComponent* UAdditionalDepotsPerPlayerDataComponent::Get(const AFGPlayerState* playerState)
 {
 	if (!IsValid(playerState))
 	{
@@ -94,7 +94,7 @@ void UAdditionalDepotsPerPlayerDataComponent::BeginPlay() {
 	}
 }
 
-void UAdditionalDepotsPerPlayerDataComponent::SetListPriorities(TArray<FAdditionalDepotListPriority> Array)
+void UAdditionalDepotsPerPlayerDataComponent::SetListPriorities(const TArray<FAdditionalDepotListPriority>& Array)
 {
 	DepotListPriorities = Array;
 

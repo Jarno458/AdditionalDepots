@@ -93,7 +93,7 @@ public:
 
 	virtual void BeginPlay() override;
 
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 	void SendInitialReplicationData(const APlayerController* PlayerController) const;
@@ -105,7 +105,7 @@ private:
 	void ReceiveConfigReplicationData(const FAdditionalDepotsConfigReplicationMessage& ConfigReplicationMessage) const;
 
 	UFUNCTION() //for event binding
-	void SendUpdatedItemReplicationData(FName ListIdentifier, TArray<FItemAmount> items, AFGPlayerState* playerState);
+	void SendUpdatedItemReplicationData(FName ListIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState);
 	UFUNCTION() //for event binding
 	void SendUpdatedConfiguration(FName ListIdentifier, FAdditionalDepotConfiguration config);
 };
