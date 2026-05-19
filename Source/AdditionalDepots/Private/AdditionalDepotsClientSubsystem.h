@@ -17,7 +17,7 @@ struct FAdditionalDepotsListDetailsData
 	GENERATED_BODY()
 
 public:
-	FAdditionalDepotsListDetailsData() : 
+	FAdditionalDepotsListDetailsData() :
 		Name(FText::GetEmpty()),
 		MaxAmount(0),
 		MaxType(EFAAdditionalDepotsMaxType::None),
@@ -76,18 +76,23 @@ struct FAdditionalDepotsColorAmount
 public:
 	FAdditionalDepotsColorAmount() :
 		Amount(0),
+		TotalAmount(0),
 		Color(FLinearColor::White)
 	{
 	}
 
-	FAdditionalDepotsColorAmount(int32 amount, FLinearColor color) :
+	FAdditionalDepotsColorAmount(int32 amount, int32 totalAmount, FLinearColor color) :
 		Amount(amount),
+		TotalAmount(totalAmount),
 		Color(color)
 	{
 	}
 
 	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
 	int32 Amount;
+
+	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
+	int32 TotalAmount;
 
 	UPROPERTY(BlueprintReadOnly, Category = "AdditionalDepots")
 	FLinearColor Color;
@@ -190,11 +195,14 @@ public:
 
 
 public: //internal
-
 	void AddItemData(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount);
 
 	void UpdateConfiguration(FName listIdentifier, const FAdditionalDepotConfiguration& config);
 
 private:
 	void AddList(TSubclassOf<UAdditionalDepotDefinition> details);
+
+
+	UFUNCTION() //required for event binding
+	void UpdateCachedConfiguration();
 };

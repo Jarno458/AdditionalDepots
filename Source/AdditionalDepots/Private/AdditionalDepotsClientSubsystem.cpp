@@ -1,9 +1,12 @@
 #include "AdditionalDepotsClientSubsystem.h"
 
+#include "AdditionalDepotConfigStruct.h"
+#include "AdditionalDepotsCachedConfig.h"
 #include "AdditionalDepotsDataTypes.h"
 #include "AdditionalDepotsPerPlayerDataComponent.h"
 #include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsUtils.h"
+#include "ConfigPropertyBool.h"
 #include "FGCentralStorageSubsystem.h"
 #include "FGPlayerController.h"
 #include "FGPlayerState.h"
@@ -37,7 +40,24 @@ void AAdditionalDepotsClientSubsystem::BeginPlay() {
 	UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Display, "AAdditionalDepotsClientSubsystem::BeginPlay()");
 	Super::BeginPlay();
 
-	centralStorageSubsystem = AFGCentralStorageSubsystem::Get(GetWorld());
+	UWorld* world = GetWorld();
+	fgcheck(world);
+
+	centralStorageSubsystem = AFGCentralStorageSubsystem::Get(world);
+
+	UpdateCachedConfiguration();
+
+	FConfigId ConfigId{ "AdditionalDepots", "" };
+	UConfigManager* ConfigManager = world->GetGameInstance()->GetSubsystem<UConfigManager>();
+	UConfigPropertySection* configRoot = ConfigManager->GetConfigurationRootSection(ConfigId);
+
+	configRoot->SectionProperties["AbbreviateNumbers"]->OnPropertyValueChanged.AddDynamic(this, &AAdditionalDepotsClientSubsystem::UpdateCachedConfiguration);
+	configRoot->SectionProperties["CostProgressRelativeToTotal"]->OnPropertyValueChanged.AddDynamic(this, &AAdditionalDepotsClientSubsystem::UpdateCachedConfiguration);
+}
+
+void AAdditionalDepotsClientSubsystem::UpdateCachedConfiguration()
+{
+	UAdditionalDepotsCachedConfig::UpdateFromConfig(this);
 }
 
 void AAdditionalDepotsClientSubsystem::PostActorCreated()
@@ -205,7 +225,7 @@ bool AAdditionalDepotsClientSubsystem::HasAnyAvailableForBuildingForItem(APlayer
 				return true;
 		}
 	}
-	
+
 	return false;
 }
 
@@ -235,6 +255,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 				continue;
 
 			int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
+			int32 totalStoredAmount = centralStorageAmount;
 			totalAmount += centralStorageAmount;
 
 			if (centralStorageAmount > 0)
@@ -246,7 +267,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 					remainingCost = 0;
 				}
 
-				amounts.Add(FAdditionalDepotsColorAmount(centralStorageAmount, depotLists[depot.Identifier].Color));
+				amounts.Add(FAdditionalDepotsColorAmount(centralStorageAmount, totalStoredAmount, depotLists[depot.Identifier].Color));
 			}
 		}
 		else if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetPlayerInventoryDepotIdentifier())
@@ -262,6 +283,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 			}
 
 			int32 amountInInventory = playerCharacter->GetInventory()->GetNumItems(itemClass);
+			int32 totalStoredAmount = amountInInventory;
 
 			totalAmount += amountInInventory;
 
@@ -274,7 +296,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 					remainingCost = 0;
 				}
 
-				amounts.Add(FAdditionalDepotsColorAmount(amountInInventory, inventoryColor));
+				amounts.Add(FAdditionalDepotsColorAmount(amountInInventory, totalStoredAmount, inventoryColor));
 			}
 		}
 		else
@@ -284,6 +306,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 				continue;
 
 			int32 depotAmount = depotContents[depot.Identifier].ItemAmounts[itemClass];
+			int32 totalStoredAmount = depotAmount;
 
 			totalAmount += depotAmount;
 
@@ -294,7 +317,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 				remainingCost = 0;
 			}
 
-			amounts.Add(FAdditionalDepotsColorAmount(depotAmount, depotLists[depot.Identifier].Color));
+			amounts.Add(FAdditionalDepotsColorAmount(depotAmount, totalStoredAmount, depotLists[depot.Identifier].Color));
 		}
 	}
 
@@ -307,16 +330,16 @@ int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem(const UFGInv
 {
 	int64 amount = 0;
 
-	 if (!IsValid(playerState))
-	 {
-		 playerState = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
+	if (!IsValid(playerState))
+	{
+		playerState = UAdditionalDepotsUtils::TryGetPlayerStateFromInventory(inventory);
 
-		 if (!playerState)
-		 {
-			 UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem() - PlayerState not found!");
-			 return 0;
-		 }
-	 }
+		if (!playerState)
+		{
+			UE_LOGFMT(LogAdditionalDepotsClientSubsystem, Error, "AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem() - PlayerState not found!");
+			return 0;
+		}
+	}
 
 	UAdditionalDepotsPerPlayerDataComponent* playerData = Cast<UAdditionalDepotsPerPlayerDataComponent>(playerState->GetComponentByClass(UAdditionalDepotsPerPlayerDataComponent::StaticClass()));
 	if (!playerData)
