@@ -3,7 +3,7 @@
 	"Version": 1,
 	"VersionName": "1.0.0",
 	"SemVersion": "1.0.0",
-	"FriendlyName": "AdditionalDepots",
+	"FriendlyName": "Additional Depots",
 	"Description": "Provides a framework for mods to add additional sources of items, like the demensional depot",
 	"Category": "Modding",
 	"CreatedBy": "Jarno",
