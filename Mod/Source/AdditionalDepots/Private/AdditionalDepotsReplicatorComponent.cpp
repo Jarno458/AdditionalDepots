@@ -279,6 +279,7 @@ void UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData(const FA
 	}
 }
 
+// ReSharper disable once CppMemberFunctionMayBeConst // cannot be const due to event binding
 void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName ListIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState)
 {
 	FAdditionalDepotsItemReplicationMessage Message;
@@ -289,29 +290,29 @@ void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName 
 		Message.ItemData.Add(FReplicatedItemData(ListIdentifier, Item.ItemClass, Item.Amount));
 	}
 
-	if (IsValid(playerState))
+	if (IsValid(playerState)) // non player specific events don't send player state along
 	{
 		const APlayerController* PlayerController = playerState->GetPlayerController();
 		if (IsValid(PlayerController))
 		{
-			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), playerState->GetPlayerName());
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated player specific replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), playerState->GetPlayerName());
 			SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 		}
 	} 
 	else
 	{
-		//TODO could optimize using relevancy, that would be fancy
 		for (TPlayerControllerIterator<AFGPlayerController>::ServerAll playerController(GetWorld()); playerController; ++playerController) {
 			if (!IsValid(*playerController))
 				continue;
 
-			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated global replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
 
 			SendRawMessage(*playerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 		}
 	}
 }
 
+// ReSharper disable once CppMemberFunctionMayBeConst // cannot be const due to event binding
 void UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration(FName ListIdentifier, FAdditionalDepotConfiguration config)
 {
 	FAdditionalDepotsConfigReplicationMessage Message;

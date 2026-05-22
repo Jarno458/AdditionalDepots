@@ -432,7 +432,7 @@ int32 AAdditionalDepotsServerSubsystem::AddItemInternal(FName listIdentifier, TS
 	}
 
 	if (Added != 0 && IsInitialized() && broadcast)
-		OnItemAdded.Broadcast(listIdentifier, itemClass, Added, playerState);
+		OnItemAdded.Broadcast(listIdentifier, itemClass, Added, uniquePerPlayer.Contains(listIdentifier) && uniquePerPlayer[listIdentifier] ? playerState : nullptr);
 
 	return Added;
 }
@@ -473,7 +473,7 @@ int32 AAdditionalDepotsServerSubsystem::RemoveItemInternal(FName listIdentifier,
 	}
 
 	if (Removed != 0 && IsInitialized() && broadcast)
-		OnItemRemoved.Broadcast(listIdentifier, itemClass, Removed, playerState);
+		OnItemRemoved.Broadcast(listIdentifier, itemClass, Removed, uniquePerPlayer.Contains(listIdentifier) && uniquePerPlayer[listIdentifier] ? playerState : nullptr);
 
 	return Removed;
 }
@@ -526,7 +526,7 @@ void AAdditionalDepotsServerSubsystem::BroadCastNewItemAmounts(FName listIdentif
 		}
 	}
 
-	OnItemAmountUpdated.Broadcast(listIdentifier, items, playerState);
+	OnItemAmountUpdated.Broadcast(listIdentifier, items, uniquePerPlayer.Contains(listIdentifier) && uniquePerPlayer[listIdentifier] ? playerState : nullptr);
 }
 
 void AAdditionalDepotsServerSubsystem::BroadCastNewConfiguration(FName listIdentifier)
