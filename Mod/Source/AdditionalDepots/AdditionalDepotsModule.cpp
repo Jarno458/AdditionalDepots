@@ -62,17 +62,14 @@ void FAdditionalDepotsModule::CheckCanAffordHook(TCallScope<void(*)(AFGHologram*
 
 	TArray<FItemAmount> costs = hologram->GetCost(true);
 
-	if (hologram->HasAuthority())
+	//don't use hologram->HasAuthority() as its true on pure clients
+	if (inventory->HasAuthority())
 	{
-		UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGHologram::CheckCanAfford() called from server");
-
 		if (!ServerCanAfford(costs, inventory, state))
 			hologram->AddConstructDisqualifier(UFGCDUnaffordable::StaticClass());
 	}
 	else
 	{
-		UE_LOGFMT(LogAdditionalDepotsModule, Display, "AFGHologram::CheckCanAfford() called from client");
-
 		if (!ClientCanAfford(costs, inventory, state))
 			hologram->AddConstructDisqualifier(UFGCDUnaffordable::StaticClass());
 	}
@@ -100,17 +97,9 @@ void FAdditionalDepotsModule::CanProduceHook(TCallScope<bool(*)(const UFGWorkBen
 	TArray<FItemAmount> costs = UFGRecipe::GetIngredients(recipe);
 
 	if (workBench->HasAuthority())
-	{
-		UE_LOGFMT(LogAdditionalDepotsModule, Display, "UFGWorkBench::CanProduce() called from server");
-
 		func.Override(ServerCanAfford(costs, inventory, state));
-	}
 	else
-	{
-		UE_LOGFMT(LogAdditionalDepotsModule, Display, "UFGWorkBench::CanProduce() called from client");
-
 		func.Override(ClientCanAfford(costs, inventory, state));
-	}
 }
 
 void FAdditionalDepotsModule::GrabItemsFromInventoryAndCentralStorageHook(
@@ -169,7 +158,7 @@ bool FAdditionalDepotsModule::ServerCanAfford(const TArray<FItemAmount>& itemAmo
 
 bool FAdditionalDepotsModule::ClientCanAfford(const TArray<FItemAmount>& itemAmounts, const UFGInventoryComponent* inventory, const AFGPlayerState* playerState)
 {
-	AAdditionalDepotsClientSubsystem* clientSubsystem = AAdditionalDepotsClientSubsystem::Get(playerState->GetWorld());
+	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(playerState->GetWorld());
 	if (!clientSubsystem)
 	{
 		UE_LOGFMT(LogAdditionalDepotsModule, Error, "AFGHologram::CheckCanAfford() - Could not get client subsystem!");

@@ -43,7 +43,7 @@ AFGPlayerController* UADTUtils::GetPlayerControllerFromArgument(UCommandSender* 
 		if (TryGetAmountFromArgument(Sender, Arguments, ArgumentIndex, controllerNumber))
 		{
 			UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::Assert);
-			for (TPlayerControllerIterator<AFGPlayerController>::ServerAll It(World); It; ++It) {
+			for (TPlayerControllerIterator<AFGPlayerController>::ServerAll It(World); It; ++It) {	
 				controllers.Add(*It);
 			}
 

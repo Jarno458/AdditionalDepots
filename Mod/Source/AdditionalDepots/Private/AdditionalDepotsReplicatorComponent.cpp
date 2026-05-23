@@ -167,7 +167,7 @@ void UAdditionalDepotsReplicatorComponent::SendInitialReplicationData(const APla
 		ConfigMessage.ConfigData.Add(FReplicatedDepotConfigurationData(listIdentifier, Config));
 	}
 
-	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendInitialReplicationData() Sending initial replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), playerState->GetPlayerName());
+	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendInitialReplicationData() Sending initial replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), playerState->GetPlayerName());
 
 	SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 	SendRawMessage(PlayerController, ConfigMessage.MessageId, [&](FArchive& Ar) { Ar << ConfigMessage; });
@@ -185,7 +185,7 @@ void UAdditionalDepotsReplicatorComponent::SendRawMessage(const APlayerControlle
 	// if we are our own target
 	if (PlayerController->IsLocalController())
 	{
-		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendRawMessage() Sending raw message {0} to local player", RawMessageData.Num());
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendRawMessage() Sending raw message {0} to local player", RawMessageData.Num());
 		OnRawDataReceived(MoveTemp(RawMessageData));
 	}
 	else
@@ -193,7 +193,7 @@ void UAdditionalDepotsReplicatorComponent::SendRawMessage(const APlayerControlle
 		UReliableMessagingPlayerComponent* PlayerComponent = UReliableMessagingPlayerComponent::GetFromPlayer(PlayerController);
 		if (ensure(PlayerComponent))
 		{
-			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendRawMessage() Sending raw message {0} to player", RawMessageData.Num());
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendRawMessage() Sending raw message {0} to player", RawMessageData.Num());
 			PlayerComponent->SendMessage(RELIABLE_MESSAGING_CHANNEL_ID_ADDITIONAL_DEPOTS, MoveTemp(RawMessageData));
 		}
 	}
@@ -207,7 +207,7 @@ void UAdditionalDepotsReplicatorComponent::OnRawDataReceived(TArray<uint8>&& InM
 	EAdditionalDepotsReplicatorMessageId MessageId{};
 	ProxyArchive << MessageId;
 
-	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::OnRawDataReceived() Received raw message with {0} bytes", InMessageData.Num());
+	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::OnRawDataReceived() Received raw message with {0} bytes", InMessageData.Num());
 	if (ProxyArchive.IsError()) return;
 
 	switch (MessageId)
@@ -240,7 +240,7 @@ void UAdditionalDepotsReplicatorComponent::OnRawDataReceived(TArray<uint8>&& InM
 
 void UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData(const FAdditionalDepotsItemReplicationMessage& ItemReplicationMessage) const
 {
-	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData() Received {0} item replication datas from the server", ItemReplicationMessage.ItemData.Num());
+	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData() Received {0} item replication datas from the server", ItemReplicationMessage.ItemData.Num());
 
 	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(GetWorld());
 	if (!clientSubsystem)
@@ -257,7 +257,7 @@ void UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData(const FAdd
 
 void UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData(const FAdditionalDepotsConfigReplicationMessage& ConfigReplicationMessage) const
 {
-	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData() Received {0} configuration replication datas from the server", ConfigReplicationMessage.ConfigData.Num());
+	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData() Received {0} configuration replication datas from the server", ConfigReplicationMessage.ConfigData.Num());
 
 	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(GetWorld());
 	if (!clientSubsystem)
@@ -295,7 +295,7 @@ void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName 
 		const APlayerController* PlayerController = playerState->GetPlayerController();
 		if (IsValid(PlayerController))
 		{
-			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated player specific replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), playerState->GetPlayerName());
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated player specific replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), playerState->GetPlayerName());
 			SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 		}
 	} 
@@ -305,7 +305,7 @@ void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName 
 			if (!IsValid(*playerController))
 				continue;
 
-			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated global replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated global replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
 
 			SendRawMessage(*playerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 		}
@@ -323,7 +323,7 @@ void UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration(FName ListId
 		if (!IsValid(*playerController))
 			continue;
 
-		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration() Sending updated configuration message with {0} configurations in the lookup array to player {1}", Message.ConfigData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendUpdatedConfiguration() Sending updated configuration message with {0} configurations in the lookup array to player {1}", Message.ConfigData.Num(), *playerController->GetPlayerState<APlayerState>()->GetPlayerName());
 
 		SendRawMessage(*playerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 	}
