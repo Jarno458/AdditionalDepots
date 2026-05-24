@@ -29,12 +29,12 @@ The setting work as follows:
 `Can Drag Items To Inventory`: Controls whether or not a player can drag a stack into his own personal inventory (can be changed at runtime).  
 `Can Be Used When Building`: Controls whether or not this depot can be directly used when crafting or building (can be changed at runtime, player can also turn this off for themself).  
 `Is Player Specific`: If checked, each player will have its own specific contents for this depot.  
+
+NOTE: if both `Can Drag Items To Inventory` and `Can Be Used When Building` are unchecked, then the depot will be read-only for the player, they can see it but cannot take anything out.  
+NOTE: Its currently not posable to Drag & Drop items from your inventory into a custom depot, they will instead go to the Dimensional Depot if its available, but this functionality can be added later if there is enough desire for it.
+
 ##### Savegame:  
 `Persist In Save Game`: If checked, contents of this depot will be persisted in the same game, otherwise the content is lost.  
-
-NOTE: if both `Can Drag Items To Inventory` and `Can Be Used When Building` are unchecked, then the depot will be read-only for the player, they can see it but cannot take anything out.
-
-NOTE: Its currently not posable to Drag & Drop items from your inventory into a custom depot, they will instead go to the Dimensional Depot if its available, but this functionality can be added later if there is enough desire for it.
 
 ### Manipulating the Depot
 ![Debug Subsystems Blueprint](https://github.com/Jarno458/AdditionalDepots/blob/main/Mod/Docs/DepotSubsystems.png?raw=true)  
@@ -57,3 +57,6 @@ The server subsystem exposes the follow methods, and should be accessed from ser
 `OnItemAdded`: Fired when Add/RemoveItem(s) is called, will also fire in response to a client dragging items to their inventory
 `OnItemAmountUpdated`: Fixed when any item has its amount changed, used by replication system to replicate the new amounts
 `OnConfigurationUpdated`: Fixed when a depot configuration is updated, used by replication system to replicate the new configuration
+
+#### Testing
+The Additional Depots Test Commands mod is developed to allow mod authors to quickly manipulate depots, by adding and removing item, for more information see [https://ficsit.app/mod/AdditionalDepotsTest](https://ficsit.app/mod/AdditionalDepotsTest)
