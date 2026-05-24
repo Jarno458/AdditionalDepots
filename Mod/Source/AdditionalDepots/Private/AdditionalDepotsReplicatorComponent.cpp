@@ -242,7 +242,7 @@ void UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData(const FAdd
 {
 	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData() Received {0} item replication datas from the server", ItemReplicationMessage.ItemData.Num());
 
-	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(GetWorld());
+	AAdditionalDepotsClientSubsystem* clientSubsystem = AAdditionalDepotsClientSubsystem::Get(GetWorld());
 	if (!clientSubsystem)
 	{
 		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Error, "UAdditionalDepotsReplicatorComponent::ReceiveItemReplicationData() Failed to find AAdditionalDepotsClientSubsystem in the world");
@@ -259,7 +259,7 @@ void UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData(const FA
 {
 	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData() Received {0} configuration replication datas from the server", ConfigReplicationMessage.ConfigData.Num());
 
-	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(GetWorld());
+	AAdditionalDepotsClientSubsystem* clientSubsystem = AAdditionalDepotsClientSubsystem::Get(GetWorld());
 	if (!clientSubsystem)
 	{
 		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Error, "UAdditionalDepotsReplicatorComponent::ReceiveConfigReplicationData() Failed to find AAdditionalDepotsClientSubsystem in the world");

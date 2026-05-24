@@ -24,10 +24,7 @@ AAdditionalDepotsClientSubsystem::AAdditionalDepotsClientSubsystem() : Super() {
 }
 
 AAdditionalDepotsClientSubsystem* AAdditionalDepotsClientSubsystem::Get(UWorld* world) {
-	USubsystemActorManager* subsystemActorManager = world->GetSubsystem<USubsystemActorManager>();
-	fgcheck(subsystemActorManager);
-
-	return subsystemActorManager->GetSubsystemActor<AAdditionalDepotsClientSubsystem>();
+	return UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(world);
 }
 
 AAdditionalDepotsClientSubsystem* AAdditionalDepotsClientSubsystem::Get(UObject* worldContext) {

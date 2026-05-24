@@ -8,8 +8,8 @@
 UENUM(BlueprintType)
 enum class EFAAdditionalDepotsMaxType : uint8 {
 	Stacks UMETA(DisplayName = "Number of Stacks"),
-	Total UMETA(DisplayName = "Total amout of items"),
-	TotalHidden UMETA(DisplayName = "Total amout of items (only used for progress bar)"),
+	Total UMETA(DisplayName = "Total amout of items (shows current/max)"),
+	TotalHidden UMETA(DisplayName = "Total amout of items only shows current"),
 	None UMETA(DisplayName = "None (no progress bar)"),
 };
 

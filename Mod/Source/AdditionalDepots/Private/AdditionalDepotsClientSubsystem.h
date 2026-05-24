@@ -142,7 +142,7 @@ public:
 	AAdditionalDepotsClientSubsystem();
 
 	static AAdditionalDepotsClientSubsystem* Get(UWorld* world);
-	UFUNCTION(BlueprintPure, Category = "Schematic", DisplayName = "Get Additional Depots Subsystem", Meta = (DefaultToSelf = "worldContext"))
+	UFUNCTION(BlueprintPure, Category = "Schematic", DisplayName = "Get Additional Depots Client Subsystem", Meta = (DefaultToSelf = "worldContext"))
 	static AAdditionalDepotsClientSubsystem* Get(UObject* worldContext);
 
 protected:

@@ -9,7 +9,6 @@
 #include "FGWorkBench.h"
 #include "ItemAmount.h"
 #include "NativeHookManager.h"
-#include "Modules/ModuleManager.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsModule, Log, All);
 

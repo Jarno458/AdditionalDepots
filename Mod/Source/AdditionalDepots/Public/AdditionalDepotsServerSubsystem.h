@@ -97,8 +97,11 @@ private:
 public:
 	FORCEINLINE bool IsInitialized() const { return initialized; }
 
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Depot Content", ToolTip = "Sets the content of a depot list (overriding existing content), should only be called on server."))
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Depot Content", ToolTip = "Sets the content of a depot list (overriding existing content)"))
 	void SetDepotContent(FName listIdentifier, const TArray<FItemAmount>& items, const AFGPlayerState* playerState = nullptr);
+	
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Item to amount", ToolTip = "Sets an specific amount for an item of a depot list"))
+	void SetItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState = nullptr);
 
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Add Item To Depot", ToolTip = "Adds an amount of items to a specific depot list, returns the total items added"))
 	int32 AddItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState = nullptr);

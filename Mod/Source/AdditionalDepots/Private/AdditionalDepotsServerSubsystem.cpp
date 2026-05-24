@@ -83,7 +83,15 @@ void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, con
 		depotContent.ItemAmounts.Empty();
 
 		for (const FItemAmount& item : items)
+		{
+			if (item.Amount < 0)
+			{
+				UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::SetDepotContent() - Invalid amount for item {0}, must be a non-negative value!", UFGItemDescriptor::GetItemName(item.ItemClass).ToString());
+				continue;
+			}
+
 			depotContent.ItemAmounts.Add(item.ItemClass, item.Amount);
+		}
 
 		depotContent.ItemAmounts.GenerateKeyArray(updatedItems);
 
@@ -95,6 +103,52 @@ void AAdditionalDepotsServerSubsystem::SetDepotContent(FName listIdentifier, con
 	}
 
 	BroadCastNewItemAmounts(listIdentifier, updatedItems, playerState);
+}
+
+void AAdditionalDepotsServerSubsystem::SetItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState)
+{
+	if (!listIdentifier.IsValid())
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Warning, "LogAdditionalDepotsServerSubsystem::SetDepotContent() - Invalid list identifier!");
+		return;
+	}
+
+	if (amount < 0)
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::SetDepotContent() - Invalid amount, must be a non-negative value!");
+		return;
+	}
+
+	if (!depotConfigurations.Contains(listIdentifier))
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::SetDepotContent(listIdentifier: {0}) - Depot configuration not found!", listIdentifier.ToString());
+		return;
+	}
+
+	if (listIdentifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
+	{
+		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "LogAdditionalDepotsServerSubsystem::SetDepotContent({0}) Cannot set contents of dimensional storage, use the AFGCentralStorageSubsystem instead");
+		return;
+	}
+
+	{
+		FScopeLock lock(&depotLock);
+
+		TMap<FName, FMappedItemAmount>* depotContentsMap = GetDepotContent(listIdentifier, playerState);
+		if (!depotContentsMap)
+			return;
+
+		if (!(*depotContentsMap)[listIdentifier].ItemAmounts.Contains(itemClass))
+		{
+			(*depotContentsMap)[listIdentifier].ItemAmounts.Add(itemClass, amount);
+		}
+		else
+		{
+			(*depotContentsMap)[listIdentifier].ItemAmounts[itemClass] = amount;
+		}
+	}
+
+	BroadCastNewItemAmounts(listIdentifier, { itemClass }, playerState);
 }
 
 int32 AAdditionalDepotsServerSubsystem::AddItem(FName listIdentifier, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState)
@@ -540,7 +594,7 @@ void AAdditionalDepotsServerSubsystem::BroadCastNewConfiguration(FName listIdent
 void AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(int32 saveVersion, int32 gameVersion)
 {
 	UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Display, "AAdditionalDepotsServerSubsystem::PostLoadGame_Implementation(saveVersion: {0}, gameVersion: {1})", saveVersion, gameVersion);
-	
+
 	for (const TPair<FName, bool>& save : persistInSave)
 	{
 		if (!save.Value)

@@ -158,7 +158,8 @@ bool FAdditionalDepotsModule::ServerCanAfford(const TArray<FItemAmount>& itemAmo
 
 bool FAdditionalDepotsModule::ClientCanAfford(const TArray<FItemAmount>& itemAmounts, const UFGInventoryComponent* inventory, const AFGPlayerState* playerState)
 {
-	AAdditionalDepotsClientSubsystem* clientSubsystem = UAdditionalDepotsUtils::GetSubsystemActorIncludingParentClasses<AAdditionalDepotsClientSubsystem>(playerState->GetWorld());
+	AAdditionalDepotsClientSubsystem* clientSubsystem = AAdditionalDepotsClientSubsystem::Get(playerState->GetWorld());
+
 	if (!clientSubsystem)
 	{
 		UE_LOGFMT(LogAdditionalDepotsModule, Error, "AFGHologram::CheckCanAfford() - Could not get client subsystem!");
