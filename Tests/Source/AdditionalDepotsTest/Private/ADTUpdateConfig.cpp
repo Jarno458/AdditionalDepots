@@ -6,7 +6,7 @@
 
 ADTUpdateConfig::ADTUpdateConfig() {
 	CommandName = TEXT("ad-config");
-	Usage = FText::FromString(TEXT("/ad-add <depot-identifier> <CanDragItemsToInventory> <CanBeUsedWhenBuilding> - Sets usage of depot"));
+	Usage = FText::FromString(TEXT("/ad-config <depot-identifier> <CanDragItemsToInventory> <CanBeUsedWhenBuilding> - Sets usage of depot"));
 	Aliases.Add(TEXT("adconfig"));
 	MinNumberOfArguments = 3;
 }

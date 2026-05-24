@@ -6,7 +6,7 @@
 
 ADTUpdateMax::ADTUpdateMax() {
 	CommandName = TEXT("ad-max");
-	Usage = FText::FromString(TEXT("/ad-max <depot-identifier> <Max Type> <Max Amount> - Sets max allowed items for a depot"));
+	Usage = FText::FromString(TEXT("/ad-max <depot-identifier> <max-type> <amount> - Sets max allowed items for a depot"));
 	Aliases.Add(TEXT("admax"));
 	MinNumberOfArguments = 3;
 }

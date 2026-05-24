@@ -6,7 +6,7 @@
 
 ADTAddItems::ADTAddItems() {
 	CommandName = TEXT("ad-addmany");
-	Usage = FText::FromString(TEXT("/ad-add <depot-identifier> <amount> <\"item-name\" .. n> [<player name>] - Adds an item to target depot (alternative /adaddmanynp for no player specified, or /adaddmannpyspecific for a specific player)"));
+	Usage = FText::FromString(TEXT("/ad-addmany <depot-identifier> <amount> <\"item-name\" .. n> [<player name>] - Adds an item to target depot (alternative /adaddmanynp for no player specified, or /adaddmannpyspecific for a specific player)"));
 	Aliases.Add(TEXT("adaddmany"));
 	Aliases.Add(TEXT("adaddmanynp"));
 	Aliases.Add(TEXT("adaddmannpyspecific"));

@@ -39,7 +39,6 @@ EExecutionStatus ADTAddItem::ExecuteCommand_Implementation(UCommandSender* Sende
 		return EExecutionStatus::BAD_ARGUMENTS;
 	}
 
-
 	if (Label.Contains("auto")) {
 		int32 intervalInSeconds;
 		if (!UADTUtils::TryGetAmountFromArgument(Sender, Arguments, 3, intervalInSeconds))
@@ -59,7 +58,8 @@ EExecutionStatus ADTAddItem::ExecuteCommand_Implementation(UCommandSender* Sende
 
 		if (Label.EndsWith("np")) {
 			item.PlayerState = nullptr;
-		} else
+		} 
+		else
 		{
 			AFGPlayerController* controller = UADTUtils::GetPlayerControllerFromArgument(Sender, Arguments, 4, this);
 			if (!controller)
@@ -76,7 +76,9 @@ EExecutionStatus ADTAddItem::ExecuteCommand_Implementation(UCommandSender* Sende
 	}
 	else {
 		if (Label.EndsWith("np")) {
-			serverSubsystem->AddItem(Identifier, itemDescriptor, amount);
+			int32 added =  serverSubsystem->AddItem(Identifier, itemDescriptor, amount);
+
+			Sender->SendChatMessage(FString::Printf(TEXT("Added %d %s successfully."), added, *UFGItemDescriptor::GetItemName(itemDescriptor).ToString()), FLinearColor::Green);
 		}
 		else {
 			AFGPlayerController* controller = UADTUtils::GetPlayerControllerFromArgument(Sender, Arguments, 3, this);
@@ -85,9 +87,9 @@ EExecutionStatus ADTAddItem::ExecuteCommand_Implementation(UCommandSender* Sende
 				return EExecutionStatus::BAD_ARGUMENTS;
 			}
 
-			serverSubsystem->AddItem(Identifier, itemDescriptor, amount, controller->GetPlayerState<AFGPlayerState>());
+			int32 added = serverSubsystem->AddItem(Identifier, itemDescriptor, amount, controller->GetPlayerState<AFGPlayerState>());
 
-			Sender->SendChatMessage(FString::Printf(TEXT("Added %d %s successfully."), amount, *UFGItemDescriptor::GetItemName(itemDescriptor).ToString()), FLinearColor::Green);
+			Sender->SendChatMessage(FString::Printf(TEXT("Added %d %s successfully."), added, *UFGItemDescriptor::GetItemName(itemDescriptor).ToString()), FLinearColor::Green);
 		}
 	}
 
