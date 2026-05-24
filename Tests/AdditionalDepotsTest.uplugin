@@ -1,8 +1,9 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
+	"SemVersion": "1.0.0",
 	"VersionName": "1.0.0",
-	"FriendlyName": "AdditionalDepotsTest",
+	"FriendlyName": "Additional Depots Test",
 	"Description": "Testing mod for AdditionalDepots",
 	"Category": "Modding",
 	"CreatedBy": "Jarno",
@@ -31,8 +32,7 @@
 			"Name": "AdditionalDepots",
 			"Enabled": true,
 			"SemVersion": "^1.0.0"
-		},
+		}
 	],
-	"SemVersion": "1.0.0",
 	"GameVersion": ">=416835"
 }

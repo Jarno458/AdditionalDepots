@@ -30,8 +30,9 @@
 		},
 		{
 			"Name": "ReliableMessaging",
-			"Enabled": true
-		},
+			"Enabled": true,
+			"BasePlugin": true
+		}
 	],
 	"GameVersion": ">=416835"
 }
