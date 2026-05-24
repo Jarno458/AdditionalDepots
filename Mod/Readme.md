@@ -1,13 +1,14 @@
 # Additional Depots
-This mod allows other mod authors to add Additional sources if items to their players, in the form of depots, similar to the dimensional depot. The mod author will have full control over what items are available in the depot and how it behaves for the player.
-<iframe width="560" height="315" src="https://www.youtube.com/embed/mH_7AXQ7gwM" frameborder="0" allowfullscreen></iframe>
+This mod allows other mod authors to add Additional sources if items to their players, in the form of depots, similar to the dimensional depot. The mod author will have full control over what items are available in the depot and how it behaves for the player.  
+**Watch demo on YouTube:**  
+[![Watch demo on YouTube](https://img.youtube.com/vi/mH_7AXQ7gwM/0.jpg)](https://www.youtube.com/watch?v=mH_7AXQ7gwM)
 
 ### Creating Depot Definition
-In order to implement your own depots with the Additional Depots mod, you should get the code from github and place it inside a folder named `AdditionalDepots` inside your `SatisfactoryModLoader\Mods\` folder, then re-generate the visual studio project files and build the your modding projects developer-editor cpp side. once that is done open the edit and create a new resource of the type `AdditionDepotDefinition` and fill in the details as described below. Depot definition files do not need to registered, they are picked up automatically.
-<TODO INSERT IMAGE>
+In order to implement your own depots with the Additional Depots mod, you should get the code from github and place it inside a folder named `AdditionalDepots` inside your `SatisfactoryModLoader\Mods\` folder, then re-generate the visual studio project files and build the your modding projects developer-editor cpp side. once that is done open the edit and create a new resource of the type `AdditionDepotDefinition` and fill in the details as described below. Depot definition files do not need to registered, they are picked up automatically.  
+![Depot Definition Creation](https://github.com/Jarno458/AdditionalDepots/blob/main/Mod/Docs/DepotDefinitionCreation.png?raw=true)
 
 #### Depot Definition settings
-<TODO INSERT IMAGE>
+![Depot Definition Example](https://github.com/Jarno458/AdditionalDepots/blob/main/Mod/Docs/DepotDefinitionExample.png?raw=true)
 
 The setting work as follows:  
 Identifier:  
@@ -35,7 +36,7 @@ NOTE: if both `Can Drag Items To Inventory` and `Can Be Used When Building` are 
 NOTE: Its currently not posable to Drag & Drop items from your inventory into a custom depot, they will instead go to the Dimensional Depot if its available, but this functionality can be added later if there is enough desire for it.
 
 ### Manipulating the Depot
-<TODO INSERT IMAGE>
+![Debug Subsystems Blueprint](https://github.com/Jarno458/AdditionalDepots/blob/main/Mod/Docs/DepotSubsystems.png?raw=true)  
 This mod exposes the Additional Depots Server Subsystem, that can be obtained in blueprint as shown below, or in cpp like `AAdditionalDepotsClientSubsystem::Get(world)` or `AAditionalDepotsServerSubsystem::Get(world)`. The client subsystem is mostly used by the ui to display the depots and correctly take them into account when constructing things. To actually alter the contents of a depot the Server Subsystem should be used only.
 
 #### Server subsystem
