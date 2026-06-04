@@ -138,14 +138,9 @@ void AAdditionalDepotsServerSubsystem::SetItem(FName listIdentifier, TSubclassOf
 		if (!depotContentsMap)
 			return;
 
-		if (!(*depotContentsMap)[listIdentifier].ItemAmounts.Contains(itemClass))
-		{
-			(*depotContentsMap)[listIdentifier].ItemAmounts.Add(itemClass, amount);
-		}
-		else
-		{
-			(*depotContentsMap)[listIdentifier].ItemAmounts[itemClass] = amount;
-		}
+		FMappedItemAmount& depotContent = depotContentsMap->FindOrAdd(listIdentifier);
+		int32& itemAmount = depotContent.ItemAmounts.FindOrAdd(itemClass, 0);
+		itemAmount = amount;
 	}
 
 	BroadCastNewItemAmounts(listIdentifier, { itemClass }, playerState);
