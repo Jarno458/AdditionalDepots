@@ -104,7 +104,8 @@ TArray<FName> AAdditionalDepotsClientSubsystem::GetNonEmptyListIdentifiers()
 	}
 
 	TArray<FItemAmount> items;
-	centralStorageSubsystem->GetAllItemsFromCentralStorage(items);
+	if (centralStorageSubsystem)
+		centralStorageSubsystem->GetAllItemsFromCentralStorage(items);
 
 	if (items.Num() > 0)
 		lists.Add(UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier());
@@ -121,7 +122,8 @@ TArray<FItemAmount> AAdditionalDepotsClientSubsystem::GetItems(FName listIdentif
 
 	if (listIdentifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 	{
-		centralStorageSubsystem->GetAllItemsFromCentralStorage(items);
+		if (centralStorageSubsystem)
+			centralStorageSubsystem->GetAllItemsFromCentralStorage(items);
 		return items;
 	}
 
@@ -187,7 +189,7 @@ bool AAdditionalDepotsClientSubsystem::HasAnyAvailableForBuildingForItem(APlayer
 
 		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 		{
-			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding || !centralStorageSubsystem) //server configuration
 				continue;
 
 			int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
@@ -248,7 +250,7 @@ TArray<FAdditionalDepotsColorAmount> AAdditionalDepotsClientSubsystem::GetOrdere
 
 		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 		{
-			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding || !centralStorageSubsystem) //server configuration
 				continue;
 
 			int32 centralStorageAmount = centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
@@ -352,7 +354,7 @@ int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingForItem(const UFGInv
 
 		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 		{
-			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding || !centralStorageSubsystem) //server configuration
 				continue;
 
 			amount += centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);
@@ -403,7 +405,7 @@ int32 AAdditionalDepotsClientSubsystem::GetAmountForBuildingInDepotsForItem(cons
 
 		if (depot.Identifier == UAdditionalDepotsReservedIdentifiers::GetDimensionalDepotIdentifier())
 		{
-			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding) //server configuration
+			if (!depotLists.Contains(depot.Identifier) || !depotLists[depot.Identifier].CanBeUsedWhenBuilding || !centralStorageSubsystem) //server configuration
 				continue;
 
 			amount += centralStorageSubsystem->GetNumItemsFromCentralStorage(itemClass);

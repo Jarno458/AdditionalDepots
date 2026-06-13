@@ -12,8 +12,6 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsReplicatorComponent, Log, All);
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(AdditionalDepotsReplication);
 
-constexpr uint8 RELIABLE_MESSAGING_CHANNEL_ID_ADDITIONAL_DEPOTS = 83; //random value to avoid collisions with other subsystems
-
 enum class EAdditionalDepotsReplicatorMessageId : uint32
 {
 	ItemData = 0x01,
