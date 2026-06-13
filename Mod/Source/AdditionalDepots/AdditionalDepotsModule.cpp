@@ -22,6 +22,9 @@ void FAdditionalDepotsModule::StartupModule()
 		hologramCheckCanAffordHandle = SUBSCRIBE_UOBJECT_METHOD(AFGHologram, CheckCanAfford, CheckCanAffordHook);
 		workbenchCanProduceHandle = SUBSCRIBE_UOBJECT_METHOD(UFGWorkBench, CanProduce, CanProduceHook);
 		inventoryGrabItemsFromInventoryAndCentralStorage = SUBSCRIBE_METHOD(UFGInventoryLibrary::GrabItemsFromInventoryAndCentralStorage, GrabItemsFromInventoryAndCentralStorageHook); //SUBSCRIBE_UOBJECT_METHOD wont compile
+
+		//TODO - need to find a plan how to properly hook this (Known bug, checking "Show only affordable" in crafting menu, will have entire categories if it does not find any affordable recipes
+		//static TArray< TSubclassOf< class UFGItemCategory > > GetCategoriesWithAffordableRecipes(AFGCharacterPlayer * playerPawn, TSubclassOf< UObject > forProducer);
 	}
 }
 
