@@ -2,7 +2,7 @@
 
 #include "AdditionalDepotsServerSubsystem.h"
 #include "ADTUtils.h"
-#include "ChatCommandLibrary.h"
+#include "Command/ChatCommandLibrary.h"
 
 ADTUpdateConfig::ADTUpdateConfig() {
 	CommandName = TEXT("ad-config");

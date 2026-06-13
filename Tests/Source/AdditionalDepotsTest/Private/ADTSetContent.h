@@ -1,9 +1,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FGItemDescriptor.h"
 
 #include "Command/ChatCommandInstance.h"
+#include "Resources/FGItemDescriptor.h"
 
 #include "ADTSetContent.generated.h"
 

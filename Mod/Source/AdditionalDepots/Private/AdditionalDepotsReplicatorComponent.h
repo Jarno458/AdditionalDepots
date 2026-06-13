@@ -2,13 +2,15 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
-#include "FGItemDescriptor.h"
+#include "Resources/FGItemDescriptor.h"
 #include "FGPlayerState.h"
 #include "ItemAmount.h"
+#include "NativeGameplayTags.h"
 
 #include "AdditionalDepotsReplicatorComponent.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsReplicatorComponent, Log, All);
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(AdditionalDepotsReplication);
 
 constexpr uint8 RELIABLE_MESSAGING_CHANNEL_ID_ADDITIONAL_DEPOTS = 83; //random value to avoid collisions with other subsystems
 
@@ -96,9 +98,11 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
+	FGameplayTag ReplicationTag;
+
 	void SendInitialReplicationData(const APlayerController* PlayerController) const;
 
-	void OnRawDataReceived(TArray<uint8>&& InMessageData) const;
+	void OnRawDataReceived(FGameplayTag tag, TArray<uint8>&& InMessageData) const;
 	void SendRawMessage(const APlayerController* PlayerController, EAdditionalDepotsReplicatorMessageId MessageId, const TFunctionRef<void(FArchive&)>& MessageSerializer) const;
 
 	void ReceiveItemReplicationData(const FAdditionalDepotsItemReplicationMessage& ItemReplicationMessage) const;

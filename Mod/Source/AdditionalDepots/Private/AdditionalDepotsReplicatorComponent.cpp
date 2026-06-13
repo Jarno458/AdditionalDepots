@@ -3,13 +3,14 @@
 #include "AdditionalDepotsClientSubsystem.h"
 #include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsServerSubsystem.h"
-#include "AdditionalDepotsUtils.h"
+//#include "AdditionalDepotsUtils.h"
 #include "FGPlayerController.h"
-#include "ObjectAndNameAsStringProxyArchive.h"
-#include "StructuredLog.h"
+#include "Serialization/ObjectAndNameAsStringProxyArchive.h"
+#include "Logging/StructuredLog.h"
 #include "ReliableMessagingPlayerComponent.h"
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsReplicatorComponent);
+UE_DEFINE_GAMEPLAY_TAG(AdditionalDepotsReplication, "AdditionalDepots.Replication");
 
 FArchive& operator<<(FArchive& Ar, FReplicatedItemData& Info)
 {
@@ -54,6 +55,8 @@ void UAdditionalDepotsReplicatorComponent::BeginPlay() {
 
 	UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Display, "UAdditionalDepotsReplicatorComponent::BeginPlay()");
 
+	ReplicationTag = FGameplayTag::RequestGameplayTag(TEXT("AdditionalDepots.Replication"));
+
 	const APlayerController* PlayerController = CastChecked<APlayerController>(GetOwner());
 
 	if (!IsValid(PlayerController))
@@ -93,7 +96,7 @@ void UAdditionalDepotsReplicatorComponent::BeginPlay() {
 		if (UReliableMessagingPlayerComponent* PlayerComponent = UReliableMessagingPlayerComponent::GetFromPlayer(PlayerController))
 		{
 			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Log, "Registered message handler for local player");
-			PlayerComponent->RegisterMessageHandler(RELIABLE_MESSAGING_CHANNEL_ID_ADDITIONAL_DEPOTS,
+			PlayerComponent->RegisterTaggedMessageHandler(ReplicationTag,
 				UReliableMessagingPlayerComponent::FOnBulkDataReplicationPayloadReceived::CreateUObject(this, &UAdditionalDepotsReplicatorComponent::OnRawDataReceived));
 		}
 	}
@@ -186,7 +189,7 @@ void UAdditionalDepotsReplicatorComponent::SendRawMessage(const APlayerControlle
 	if (PlayerController->IsLocalController())
 	{
 		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendRawMessage() Sending raw message {0} to local player", RawMessageData.Num());
-		OnRawDataReceived(MoveTemp(RawMessageData));
+		OnRawDataReceived(ReplicationTag, MoveTemp(RawMessageData));
 	}
 	else
 	{
@@ -194,13 +197,19 @@ void UAdditionalDepotsReplicatorComponent::SendRawMessage(const APlayerControlle
 		if (ensure(PlayerComponent))
 		{
 			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendRawMessage() Sending raw message {0} to player", RawMessageData.Num());
-			PlayerComponent->SendMessage(RELIABLE_MESSAGING_CHANNEL_ID_ADDITIONAL_DEPOTS, MoveTemp(RawMessageData));
+			PlayerComponent->SendTaggedMessage(ReplicationTag, MoveTemp(RawMessageData));
 		}
 	}
 }
 
-void UAdditionalDepotsReplicatorComponent::OnRawDataReceived(TArray<uint8>&& InMessageData) const
+void UAdditionalDepotsReplicatorComponent::OnRawDataReceived(FGameplayTag tag, TArray<uint8>&& InMessageData) const
 {
+	if (tag != ReplicationTag)
+	{
+		UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Warning, "UAdditionalDepotsReplicatorComponent::OnRawDataReceived() Received message with invalid tag {0}, expected {1}", tag.ToString(), ReplicationTag.ToString());
+		return;
+	}
+
 	FMemoryReader RawMessageMemoryReader(InMessageData);
 	FObjectAndNameAsStringProxyArchive ProxyArchive(RawMessageMemoryReader, true);
 
@@ -298,7 +307,7 @@ void UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData(FName 
 			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "UAdditionalDepotsReplicatorComponent::SendUpdatedItemReplicationData() Sending updated player specific replication message with {0} items in the lookup array to player {1}", Message.ItemData.Num(), playerState->GetPlayerName());
 			SendRawMessage(PlayerController, Message.MessageId, [&](FArchive& Ar) { Ar << Message; });
 		}
-	} 
+	}
 	else
 	{
 		for (TPlayerControllerIterator<AFGPlayerController>::ServerAll playerController(GetWorld()); playerController; ++playerController) {

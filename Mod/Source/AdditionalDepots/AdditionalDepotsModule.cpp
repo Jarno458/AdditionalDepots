@@ -2,7 +2,7 @@
 
 #include "FGCharacterPlayer.h"
 #include "Patching/NativeHookManager.h"
-#include "StructuredLog.h"
+#include "Logging/StructuredLog.h"
 #include "FGInventoryComponent.h"
 #include "AdditionalDepotsClientSubsystem.h"
 #include "AdditionalDepotsServerSubsystem.h"
@@ -94,7 +94,7 @@ void FAdditionalDepotsModule::CanProduceHook(TCallScope<bool(*)(const UFGWorkBen
 		return;
 	}
 
-	TArray<FItemAmount> costs = UFGRecipe::GetIngredients(recipe);
+	TArray<FItemAmount> costs = UFGRecipe::GetIngredients(inventory, recipe);
 
 	if (workBench->HasAuthority())
 		func.Override(ServerCanAfford(costs, inventory, state));

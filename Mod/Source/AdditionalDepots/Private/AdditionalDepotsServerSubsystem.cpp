@@ -547,7 +547,6 @@ TMap<FName, FMappedItemAmount>* AAdditionalDepotsServerSubsystem::GetDepotConten
 	if (!perPlayerData)
 	{
 		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Fatal, "LogAdditionalDepotsServerSubsystem::GetDepotContent(listIdentifier: {0}) - Depot is unique per player but player player data could not be retrieved", listIdentifier.ToString());
-		return nullptr;
 	}
 
 	return &perPlayerData->depotContents;

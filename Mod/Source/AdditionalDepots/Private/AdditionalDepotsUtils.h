@@ -4,7 +4,7 @@
 #include "AdditionalDepotsDataTypes.h"
 #include "FGInventoryComponent.h"
 #include "FGPlayerState.h"
-#include "SubsystemActorManager.h"
+#include "Subsystem/SubsystemActorManager.h"
 #include "Engine/DataAsset.h"
 #include "AdditionalDepotsUtils.generated.h"
 

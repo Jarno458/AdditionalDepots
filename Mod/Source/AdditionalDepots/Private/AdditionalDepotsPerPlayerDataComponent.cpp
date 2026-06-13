@@ -4,8 +4,8 @@
 #include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsServerSubsystem.h"
 #include "FGPlayerController.h"
-#include "StructuredLog.h"
-#include "UnrealNetwork.h"
+#include "Logging/StructuredLog.h"
+#include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsPerPlayerDataComponent)
 

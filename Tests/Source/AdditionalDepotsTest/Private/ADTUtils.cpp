@@ -1,9 +1,9 @@
 #include "ADTUtils.h"
 
-#include "ChatCommandLibrary.h"
-#include "DefaultValueHelper.h"
-#include "Kismet/GameplayStatics.h"
+#include "Command/ChatCommandLibrary.h"
+//#include "Kismet/GameplayStatics.h"
 #include "Logging/StructuredLog.h"
+#include "Misc/DefaultValueHelper.h"
 
 DEFINE_LOG_CATEGORY(LogAdditionalDepotsTestUtils);
 

@@ -2,7 +2,7 @@
 
 #include "AdditionalDepotsServerSubsystem.h"
 #include "ADTUtils.h"
-#include "ChatCommandLibrary.h"
+#include "Command/ChatCommandLibrary.h"
 
 ADTAddItems::ADTAddItems() {
 	CommandName = TEXT("ad-addmany");
@@ -51,7 +51,7 @@ EExecutionStatus ADTAddItems::ExecuteCommand_Implementation(UCommandSender* Send
 	else {
 		AFGPlayerController* controller = nullptr;
 		if (Label == TEXT("adaddmanyspecific")) {
-			AFGPlayerController* controller = UADTUtils::GetPlayerControllerFromArgument(Sender, Arguments, Arguments.Num() - 1, this);
+			controller = UADTUtils::GetPlayerControllerFromArgument(Sender, Arguments, Arguments.Num() - 1, this);
 			if (!controller)
 			{
 				return EExecutionStatus::BAD_ARGUMENTS;

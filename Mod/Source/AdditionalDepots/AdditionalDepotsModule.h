@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "FGCentralStorageSubsystem.h"
-#include "FGHologram.h"
+#include "Hologram/FGHologram.h"
 #include "FGPlayerState.h"
 #include "FGWorkBench.h"
 #include "ItemAmount.h"
-#include "NativeHookManager.h"
+#include "Patching/NativeHookManager.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAdditionalDepotsModule, Log, All);
 

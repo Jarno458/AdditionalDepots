@@ -9,8 +9,8 @@ public class AdditionalDepots : ModuleRules
 		bUseUnity = false;
 		OptimizeCode = CodeOptimization.InShippingBuildsOnly;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "ReliableMessaging" });
+        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "GameplayTags" });
 		PublicDependencyModuleNames.AddRange(new string[] { "DummyHeaders" });
-		PublicDependencyModuleNames.AddRange(new string[] { "FactoryGame", "SML" });
+		PublicDependencyModuleNames.AddRange(new string[] { "FactoryGame", "ReliableMessaging", "SML" });
 	}
 }

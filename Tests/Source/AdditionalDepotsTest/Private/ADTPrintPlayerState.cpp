@@ -1,9 +1,12 @@
 #include "ADTPrintPlayerState.h"
 
-#include "ChatCommandLibrary.h"
-#include "CommandSender.h"
+#include "Command/ChatCommandLibrary.h"
+#include "Command/CommandSender.h"
+
 #include "FGPlayerController.h"
 #include "FGPlayerState.h"
+
+#include "Online/CoreOnline.h"
 
 ADTPrintPlayerState::ADTPrintPlayerState() {
 	CommandName = TEXT("ad-ps");
@@ -19,7 +22,17 @@ EExecutionStatus ADTPrintPlayerState::ExecuteCommand_Implementation(UCommandSend
 		AFGPlayerController* controller = *It;
 		AFGPlayerState* state = controller->GetPlayerState<AFGPlayerState>();
 		FString name = state->GetPlayerName();
-		FString platform = state->GetPlayingPlatformName();
+
+		FString platform;
+		FPlayerInfoHandle platformHandle = state->GetPlatformPlayerInfo();
+		if (platformHandle.IsValid())
+		{
+			platform = LexToString(platformHandle.GetOnlineServiceProvider());
+		}
+		else
+		{
+			platform = LexToString(UE::Online::EOnlineServices::Null);
+		}
 
 		Sender->SendChatMessage(FString::Printf(TEXT("Player: %s, platform: %s (ControllerAddr: 0x%p, StateAddr: 0x%p)"), *name, *platform, controller, state), FLinearColor::Yellow);
 	}

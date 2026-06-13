@@ -2,7 +2,7 @@
 
 #include "AdditionalDepotsServerSubsystem.h"
 #include "ADTUtils.h"
-#include "ChatCommandLibrary.h"
+#include "Command/ChatCommandLibrary.h"
 
 ADTAddItem::ADTAddItem() {
 	CommandName = TEXT("ad-add");

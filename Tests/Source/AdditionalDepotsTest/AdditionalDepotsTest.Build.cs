@@ -9,11 +9,11 @@ public class AdditionalDepotsTest : ModuleRules
 		bUseUnity = false;
 		OptimizeCode = CodeOptimization.Never;
 
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "CoreOnline" });
 
-		// Header stubs
+		// Header stubs	
 		PublicDependencyModuleNames.AddRange(new string[] { "DummyHeaders" });
-
+		
 		// Mod code depdencies
         PrivateDependencyModuleNames.AddRange(new string[] { "AdditionalDepots" });
 
