@@ -3,7 +3,6 @@
 #include "AdditionalDepotsClientSubsystem.h"
 #include "AdditionalDepotsReservedIdentifiers.h"
 #include "AdditionalDepotsServerSubsystem.h"
-//#include "AdditionalDepotsUtils.h"
 #include "FGPlayerController.h"
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
 #include "Logging/StructuredLog.h"
@@ -95,7 +94,7 @@ void UAdditionalDepotsReplicatorComponent::BeginPlay() {
 		//register data received handler
 		if (UReliableMessagingPlayerComponent* PlayerComponent = UReliableMessagingPlayerComponent::GetFromPlayer(PlayerController))
 		{
-			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Log, "Registered message handler for local player");
+			UE_LOGFMT(LogAdditionalDepotsReplicatorComponent, Verbose, "Registered message handler for local player");
 			PlayerComponent->RegisterTaggedMessageHandler(ReplicationTag,
 				UReliableMessagingPlayerComponent::FOnBulkDataReplicationPayloadReceived::CreateUObject(this, &UAdditionalDepotsReplicatorComponent::OnRawDataReceived));
 		}
