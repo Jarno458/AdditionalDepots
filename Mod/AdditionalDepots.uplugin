@@ -1,8 +1,8 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "1.1.0",
-	"SemVersion": "1.1.0",
+	"VersionName": "1.1.1",
+	"SemVersion": "1.1.1",
 	"FriendlyName": "Additional Depots",
 	"Description": "Provides a framework for mods to add additional depot sources of items, like the dimensional depot",
 	"Category": "Modding",

@@ -351,10 +351,10 @@ int32 AAdditionalDepotsServerSubsystem::GetAmountForBuildingForItem(const UFGInv
 	return  static_cast<int32>(FMath::Clamp<int64>(amount, 0, INT32_MAX));
 }
 
-void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState)
+bool AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* playerState)
 {
 	if (!HasAuthority())
-		return;
+		return false;
 
 	if (!IsValid(playerState))
 	{
@@ -363,7 +363,7 @@ void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsyste
 		if (!playerState)
 		{
 			UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::PayBuildingCost() - PlayerState not found!");
-			return;
+			return false;
 		}
 	}
 
@@ -371,7 +371,7 @@ void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsyste
 	if (!playerData)
 	{
 		UE_LOGFMT(LogAdditionalDepotsServerSubsystem, Error, "AAdditionalDepotsServerSubsystem::PayBuildingCost() - PlayerState does not have UAdditionalDepotsPerPlayerDataComponent!");
-		return;
+		return false;
 	}
 
 	for (const FAdditionalDepotListPriority& depot : playerData->GetListPriorities())
@@ -410,6 +410,8 @@ void AAdditionalDepotsServerSubsystem::PayBuildingCost(AFGCentralStorageSubsyste
 				break;
 		}
 	}
+
+	return true;
 }
 
 void AAdditionalDepotsServerSubsystem::AddList(TSubclassOf<UAdditionalDepotDefinition> details)

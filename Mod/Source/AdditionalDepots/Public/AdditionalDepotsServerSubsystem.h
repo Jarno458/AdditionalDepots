@@ -139,8 +139,8 @@ public:
 	UFUNCTION(BlueprintCallable, DisplayName = "Get total amount avaiable for building with this item")
 	int32 GetAmountForBuildingForItem(const UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, const AFGPlayerState* state);
 
-	UFUNCTION(BlueprintCallable)
-	void PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* state = nullptr);
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Pay Building Cost", ToolTip = "Returns false if method is unable to process the request"))
+	bool PayBuildingCost(AFGCentralStorageSubsystem* centralStorageSubsystem, UFGInventoryComponent* inventory, TSubclassOf<UFGItemDescriptor> itemClass, int32 amount, const AFGPlayerState* state = nullptr);
 
 	UPROPERTY(BlueprintAssignable, Category = "Additional Depots|Events")
 	FADOnDepotItemsAddedOrRemoved OnItemRemoved;

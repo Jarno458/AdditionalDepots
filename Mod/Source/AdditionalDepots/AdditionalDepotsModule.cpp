@@ -137,7 +137,8 @@ void FAdditionalDepotsModule::GrabItemsFromInventoryAndCentralStorageHook(
 		return;
 	}
 
-	serverSubsystem->PayBuildingCost(centralStorageSubsystem, inventory, itemClass, numItemsToRemove, playerState);
+	 if (serverSubsystem->PayBuildingCost(centralStorageSubsystem, inventory, itemClass, numItemsToRemove, playerState))
+		func.Cancel();
 }
 
 bool FAdditionalDepotsModule::ServerCanAfford(const TArray<FItemAmount>& itemAmounts, const UFGInventoryComponent* inventory, const AFGPlayerState* playerState)
