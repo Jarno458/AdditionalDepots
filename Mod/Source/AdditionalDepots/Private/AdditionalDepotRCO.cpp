@@ -57,3 +57,31 @@ void UAdditionalDepotRCO::ServerAddItem_Implementation(FName listIdentifier, FIt
 
 	AAdditionalDepotsServerSubsystem::Get(GetWorld())->AddItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount, playerState);
 }
+
+void UAdditionalDepotRCO::ServerTryMoveItemToInventory_Implementation(FName listIdentifier, FItemAmount itemAmount, UFGInventoryComponent* inventory, int inventoryIndex)
+{
+	UE_LOGFMT(LogAdditionalDepotRCO, Display, "RCO Add Item to Server: {0}, item: {1}", listIdentifier.ToString(), itemAmount.Amount);
+
+	AFGPlayerController* controller = GetOwnerPlayerController();
+	if (!IsValid(controller))
+		return;
+
+	AFGPlayerState* playerState = controller->GetPlayerState<AFGPlayerState>();
+	if (!IsValid(playerState))
+		return;
+
+	AAdditionalDepotsServerSubsystem* additionalDepotsServerSubsystem = AAdditionalDepotsServerSubsystem::Get(GetWorld());
+	if (!IsValid(additionalDepotsServerSubsystem))	{
+		UE_LOGFMT(LogAdditionalDepotRCO, Error, "RCO ServerTryMoveItemToInventory - Could not get server subsystem!");
+		return;
+	}
+
+	int32 removed = additionalDepotsServerSubsystem->RemoveItem(listIdentifier, itemAmount.ItemClass, itemAmount.Amount, playerState);
+
+	FInventoryStack stack(removed, itemAmount.ItemClass);
+
+	int32 added = inventory->AddStackToIndex(inventoryIndex, stack, true);
+
+	if (added < removed)
+		additionalDepotsServerSubsystem->AddItem(listIdentifier, itemAmount.ItemClass, removed - added, playerState);
+}

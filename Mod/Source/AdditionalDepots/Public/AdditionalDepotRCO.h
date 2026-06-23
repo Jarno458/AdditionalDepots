@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AdditionalDepotsDataTypes.h"
+#include "FGInventoryComponent.h"
 #include "FGRemoteCallObject.h"
 #include "ItemAmount.h"
 
@@ -26,6 +27,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Reliable, Server)
 	void ServerAddItem(FName listIdentifier, FItemAmount itemAmount);
+
+	UFUNCTION(BlueprintCallable, Reliable, Server)
+	void ServerTryMoveItemToInventory(FName listIdentifier, FItemAmount itemAmount, UFGInventoryComponent* inventory, int inventoryIndex);
 
 	UFUNCTION(BlueprintCallable, Reliable, Server)
 	void ServerSetDepotPriority(const TArray<FAdditionalDepotListPriority>& listPriorities);
